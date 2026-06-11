@@ -34,19 +34,26 @@ async function clickSearchNear(frame, labelText) {
   await frame.locator(xp).first().click({ timeout: 8000 });
 }
 
-// 폼이 들어있는 프레임 찾기 — 입력칸(input/select)이 가장 많은 프레임 = 폼
+// 폼이 들어있는 프레임 찾기 — 입력칸(input/select)이 가장 많은 프레임 = 폼.
+// 다우 지출폼은 /applet/(또는 /doc/) iframe 안에서 내용이 async로 늦게 뜬다.
+// 그래서 폼이 실제로 채워질 때까지 충분히(최대 ~24초) 기다린다.
 async function getFormFrame(page, step) {
-  for (let tryN = 0; tryN < 8; tryN++) {
+  let appletFrame = null;            // 필드는 아직 0이라도 폼 전용 iframe 후보 기억
+  for (let tryN = 0; tryN < 24; tryN++) {
     let best = null, bestN = 0;
     for (const f of page.frames()) {
-      try {
-        const n = await f.locator("input, select, textarea").count();
-        if (n > bestN) { bestN = n; best = f; }
-      } catch {}
+      const u = f.url() || "";
+      let n = 0;
+      try { n = await f.locator("input, select, textarea").count(); } catch { continue; }
+      if (/\/applet\/|\/doc\//.test(u)) appletFrame = f;
+      if (n > bestN) { bestN = n; best = f; }
     }
-    if (best && bestN >= 4) { if (step) step(`폼 프레임 발견 (필드 ${bestN}개)`); return best; }
-    await page.waitForTimeout(800);
+    // 실제 입력칸이 3개 이상 잡히면 그게 폼 — 채택
+    if (best && bestN >= 3) { if (step) step(`폼 프레임 발견 (필드 ${bestN}개)`); return best; }
+    await page.waitForTimeout(1000);
   }
+  // 끝까지 필드가 안 채워지면, 그래도 폼 전용 iframe(applet/doc)이 있으면 그걸 사용
+  if (appletFrame) { if (step) step("폼 프레임 추정(applet) 사용 — 필드 로딩 지연"); return appletFrame; }
   if (step) step("폼 프레임 못찾음 - 메인 사용");
   return page.mainFrame();
 }
