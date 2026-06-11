@@ -61,6 +61,7 @@ app.post("/api/submit", upload.single("photo"), async (req, res) => {
     if (!daouReady()) return res.status(503).json({ error: "다우오피스 로그인 정보(환경변수)가 아직 없어요." });
     const b = req.body;
     const result = await submitToDaou({
+      daouId: b.daouId, daouPw: b.daouPw,
       amount: b.amount, date: b.date, title: b.title,
       category: b.category, dept: b.dept, registerType: b.registerType,
       managerName: b.managerName, cardLast4: b.cardLast4,

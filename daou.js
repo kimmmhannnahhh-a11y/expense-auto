@@ -1,8 +1,10 @@
 import { chromium } from "playwright";
 import { DAOU } from "./config.js";
 
+// 멀티유저: 로그인 아이디/비번은 직원마다 앱 설정에서 받음(요청에 포함).
+// 서버엔 회사 주소(loginUrl)만 있으면 됨.
 export function daouReady() {
-  return !!(DAOU.loginUrl && DAOU.id && DAOU.pw);
+  return !!DAOU.loginUrl;
 }
 
 // 라벨/텍스트 기반 자동등록. 실제 사이트에서 한번 돌려보며 미세조정 필요.
@@ -14,12 +16,15 @@ export async function submitToDaou(p) {
   const log = [];
   const step = (m) => { log.push(m); console.log("[daou]", m); };
 
+  const loginId = p.daouId || DAOU.id;
+  const loginPw = p.daouPw || DAOU.pw;
   try {
+    if (!loginId || !loginPw) throw new Error("다우오피스 아이디/비번이 없어요. 앱 설정에 입력하세요.");
     // 1) 로그인
     step("로그인 페이지 이동");
     await page.goto(DAOU.loginUrl, { waitUntil: "domcontentloaded" });
-    await page.fill('input[name="id"], input[type="text"], #username, #id', DAOU.id).catch(() => {});
-    await page.fill('input[name="password"], input[type="password"], #password', DAOU.pw);
+    await page.fill('input[name="id"], input[type="text"], #username, #id', loginId).catch(() => {});
+    await page.fill('input[name="password"], input[type="password"], #password', loginPw);
     await page.click('button[type="submit"], .login_btn, button:has-text("로그인")');
     await page.waitForLoadState("networkidle");
     step("로그인 완료");

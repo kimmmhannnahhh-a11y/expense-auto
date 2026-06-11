@@ -43,6 +43,11 @@
   <!-- 설정 -->
   <div class="card" id="settings" style="display:none">
     <strong>내 설정 (한 번만)</strong>
+    <label>내 다우오피스 아이디</label>
+    <input id="set-daouid" placeholder="다우 아이디" autocomplete="off" />
+    <label>내 다우오피스 비밀번호</label>
+    <input id="set-daoupw" type="password" placeholder="다우 비밀번호" autocomplete="off" />
+    <div class="hint">본인 계정으로 등록돼요. 이 기기에만 저장됩니다(공용 PC에서는 주의).</div>
     <label>결산산입부서</label>
     <select id="set-dept"></select>
     <label>제목용 팀명 (예: 모바일유통사업부)</label>
@@ -115,6 +120,8 @@ $("#gearBtn").onclick = () => { const s=$("#settings"); s.style.display = s.styl
 function loadSettings(){
   if(settings.dept) $("#set-dept").value=settings.dept;
   if(settings.rtype) $("#set-rtype").value=settings.rtype;
+  $("#set-daouid").value=settings.daouId||"";
+  $("#set-daoupw").value=settings.daouPw||"";
   $("#set-team").value=settings.team||"";
   $("#set-manager").value=settings.manager||"";
   $("#set-approve").checked=!!settings.approve;
@@ -137,6 +144,7 @@ function renderCards(){
 }
 $("#addCard").onclick=()=>{ settings.cards.push({alias:"",last4:""}); renderCards(); };
 $("#saveSet").onclick=()=>{
+  settings.daouId=$("#set-daouid").value; settings.daouPw=$("#set-daoupw").value;
   settings.dept=$("#set-dept").value; settings.team=$("#set-team").value;
   settings.rtype=$("#set-rtype").value; settings.manager=$("#set-manager").value;
   settings.approve=$("#set-approve").checked;
@@ -188,12 +196,15 @@ $("#analyzeBtn").onclick=async()=>{
 
 // ----- 등록 -----
 $("#submitBtn").onclick=async()=>{
+  if(!settings.daouId||!settings.daouPw){ alert("먼저 설정에 다우오피스 아이디/비번을 저장하세요."); $("#settings").style.display="block"; return; }
   if(!settings.team||!settings.dept){ alert("먼저 설정(부서/팀명)을 저장하세요."); $("#settings").style.display="block"; return; }
   const btn=$("#submitBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>등록 중...';
   $("#submitResult").innerHTML="";
   try{
     const fd=new FormData();
     fd.append("photo",$("#file").files[0]);
+    fd.append("daouId",settings.daouId||"");
+    fd.append("daouPw",settings.daouPw||"");
     fd.append("amount",$("#amount").value);
     fd.append("date",$("#date").value);
     fd.append("title",$("#title").value);
