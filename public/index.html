@@ -8,126 +8,219 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
          background: #0f1116; color: #e8eaed; padding: 16px; max-width: 520px; margin: 0 auto; }
-  h1 { font-size: 20px; margin: 4px 0 16px; }
+  h1 { font-size: 19px; margin: 4px 0 14px; display:flex; justify-content:space-between; align-items:center; }
+  .gear { font-size: 13px; color:#9aa0aa; background:#1a1d24; border:1px solid #2a2e37; padding:7px 11px; border-radius:9px; }
   .card { background: #1a1d24; border: 1px solid #2a2e37; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
   label { display: block; font-size: 13px; color: #9aa0aa; margin: 12px 0 6px; }
-  input, select { width: 100%; padding: 13px; font-size: 16px; background: #0f1116; color: #e8eaed;
+  input, select { width: 100%; padding: 12px; font-size: 16px; background: #0f1116; color: #e8eaed;
                   border: 1px solid #2a2e37; border-radius: 10px; }
-  button { width: 100%; padding: 15px; font-size: 16px; font-weight: 700; border: 0; border-radius: 12px;
+  .row { display:flex; gap:8px; } .row > * { flex:1; }
+  button { width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border: 0; border-radius: 12px;
            background: #3b82f6; color: #fff; margin-top: 14px; }
   button.ghost { background: #2a2e37; color: #e8eaed; }
+  button.small { width:auto; padding:9px 12px; font-size:13px; margin-top:0; }
   button:disabled { opacity: .5; }
-  .photo-box { border: 2px dashed #2a2e37; border-radius: 12px; padding: 28px 16px; text-align: center; color: #9aa0aa; }
+  .photo-box { border: 2px dashed #2a2e37; border-radius: 12px; padding: 26px 16px; text-align: center; color: #9aa0aa; }
   #preview { max-width: 100%; border-radius: 10px; margin-top: 10px; display: none; }
   .hint { font-size: 12px; color: #6b7280; margin-top: 8px; }
   .status { font-size: 13px; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
-  .ok { background: #14321f; color: #6ee7a8; }
-  .warn { background: #3a2a14; color: #f5c463; }
+  .ok { background: #14321f; color: #6ee7a8; } .warn { background: #3a2a14; color: #f5c463; }
+  .err { background:#3a1414; color:#f59e9e; }
   .spin { display:inline-block; width:16px; height:16px; border:2px solid #fff; border-top-color:transparent;
           border-radius:50%; animation: r 0.7s linear infinite; vertical-align:-3px; margin-right:6px; }
   @keyframes r { to { transform: rotate(360deg); } }
+  .cardrow { display:flex; gap:8px; align-items:center; margin-top:8px; }
+  .cardrow input { flex:1; }
+  .del { background:#3a1414; color:#f59e9e; border:0; border-radius:8px; padding:10px 12px; }
+  #shot { max-width:100%; border-radius:10px; margin-top:10px; border:1px solid #2a2e37; }
+  details summary { cursor:pointer; color:#9aa0aa; font-size:13px; }
 </style>
 </head>
 <body>
-  <h1>법카 영수증 자동등록</h1>
+  <h1>법카 영수증 자동등록 <button class="gear" id="gearBtn">설정</button></h1>
   <div id="status" class="status warn">상태 확인 중...</div>
 
+  <!-- 설정 -->
+  <div class="card" id="settings" style="display:none">
+    <strong>내 설정 (한 번만)</strong>
+    <label>결산산입부서</label>
+    <select id="set-dept"></select>
+    <label>제목용 팀명 (예: 모바일유통사업부)</label>
+    <input id="set-team" placeholder="모바일유통사업부" />
+    <label>등록유형</label>
+    <select id="set-rtype"></select>
+    <label>등록부서의 부서장 이름 (예: 김지훈)</label>
+    <input id="set-manager" placeholder="부서장 이름" />
+    <label>내 법인카드 (별칭 / 뒷4자리)</label>
+    <div id="cards"></div>
+    <button class="ghost small" id="addCard" style="margin-top:10px">+ 카드 추가</button>
+    <label style="margin-top:14px">
+      <input type="checkbox" id="set-approve" style="width:auto;vertical-align:-2px" /> 결재완료(상신)까지 자동으로
+    </label>
+    <button id="saveSet">설정 저장</button>
+  </div>
+
+  <!-- 사진 -->
   <div class="card">
     <label>영수증 사진</label>
     <div class="photo-box" id="photoBox">사진 찍기 / 앨범에서 선택</div>
     <input id="file" type="file" accept="image/*" capture="environment" style="display:none" />
     <img id="preview" />
     <button id="analyzeBtn" disabled>AI로 자동 분석</button>
-    <div class="hint">사진을 올리면 금액·날짜·가게·항목·제목을 자동으로 읽어요.</div>
   </div>
 
+  <!-- 결과/입력 -->
   <div class="card" id="result" style="display:none">
     <label>지출항목</label>
     <select id="category"></select>
-    <label>제목</label>
+    <div class="row">
+      <div><label>날짜</label><input id="date" type="date" /></div>
+      <div><label>차수</label><input id="cha" type="number" value="1" min="1" /></div>
+    </div>
+    <label>제목 (자동완성)</label>
     <input id="title" />
     <label>금액 (원)</label>
     <input id="amount" inputmode="numeric" />
-    <label>날짜</label>
-    <input id="date" type="date" />
-    <label>가게/상호</label>
-    <input id="vendor" />
+    <label>사용 카드</label>
+    <select id="card"></select>
     <button id="submitBtn">다우오피스에 등록</button>
     <button class="ghost" id="resetBtn">다시 하기</button>
+    <div id="submitResult"></div>
   </div>
 
 <script>
 const $ = s => document.querySelector(s);
-let categories = [];
+const LS = "expauto_settings";
+let cfg = { categories:[], departments:[], registerTypes:[] };
+let settings = JSON.parse(localStorage.getItem(LS) || "{}");
+if (!settings.cards) settings.cards = [{alias:"",last4:""}];
 
-async function loadStatus() {
+async function init() {
   try {
-    const r = await fetch("/api/status").then(r => r.json());
-    categories = r.categories || [];
-    fillCategories();
-    if (r.ocr && r.daou) setStatus("ok", "준비 완료 — 사진 분석 + 자동등록 가능");
-    else if (r.ocr) setStatus("warn", "사진 분석 가능 / 자동등록은 준비중(2단계)");
-    else setStatus("warn", "서버에 API 키 설정 필요 (ANTHROPIC_API_KEY)");
-  } catch { setStatus("warn", "서버 연결 실패"); }
+    cfg = await fetch("/api/config").then(r => r.json());
+    fillSelect("#category", cfg.categories);
+    fillSelect("#set-dept", cfg.departments);
+    fillSelect("#set-rtype", cfg.registerTypes, "법인카드 사용");
+    if (cfg.ocr && cfg.daou) setStatus("ok", "준비 완료 — 분석 + 자동등록 가능");
+    else if (cfg.ocr) setStatus("warn", "사진 분석 가능 / 다우 로그인정보(환경변수) 필요");
+    else setStatus("warn", "서버에 ANTHROPIC_API_KEY 설정 필요");
+  } catch { setStatus("err", "서버 연결 실패"); }
+  loadSettings(); renderCards(); refreshCardSelect(); buildTitle();
 }
-function setStatus(cls, msg) { const s = $("#status"); s.className = "status " + cls; s.textContent = msg; }
-function fillCategories() {
-  $("#category").innerHTML = categories.map(c => `<option>${c}</option>`).join("");
+function setStatus(c,m){ const s=$("#status"); s.className="status "+c; s.textContent=m; }
+function fillSelect(sel, arr, def){ $(sel).innerHTML = (arr||[]).map(v=>`<option ${v===def?"selected":""}>${v}</option>`).join(""); }
+
+// ----- 설정 -----
+$("#gearBtn").onclick = () => { const s=$("#settings"); s.style.display = s.style.display==="none"?"block":"none"; };
+function loadSettings(){
+  if(settings.dept) $("#set-dept").value=settings.dept;
+  if(settings.rtype) $("#set-rtype").value=settings.rtype;
+  $("#set-team").value=settings.team||"";
+  $("#set-manager").value=settings.manager||"";
+  $("#set-approve").checked=!!settings.approve;
+}
+function renderCards(){
+  $("#cards").innerHTML="";
+  settings.cards.forEach((c,i)=>{
+    const d=document.createElement("div"); d.className="cardrow";
+    d.innerHTML=`<input placeholder="별칭(예:최시형)" value="${c.alias||""}" data-i="${i}" data-k="alias"/>
+                 <input placeholder="뒷4자리" maxlength="4" value="${c.last4||""}" data-i="${i}" data-k="last4"/>
+                 <button class="del" data-i="${i}">x</button>`;
+    $("#cards").appendChild(d);
+  });
+  $("#cards").querySelectorAll("input").forEach(inp=>inp.oninput=e=>{
+    settings.cards[e.target.dataset.i][e.target.dataset.k]=e.target.value;
+  });
+  $("#cards").querySelectorAll(".del").forEach(b=>b.onclick=e=>{
+    settings.cards.splice(e.target.dataset.i,1); if(!settings.cards.length)settings.cards=[{alias:"",last4:""}]; renderCards();
+  });
+}
+$("#addCard").onclick=()=>{ settings.cards.push({alias:"",last4:""}); renderCards(); };
+$("#saveSet").onclick=()=>{
+  settings.dept=$("#set-dept").value; settings.team=$("#set-team").value;
+  settings.rtype=$("#set-rtype").value; settings.manager=$("#set-manager").value;
+  settings.approve=$("#set-approve").checked;
+  settings.cards=settings.cards.filter(c=>c.alias||c.last4);
+  if(!settings.cards.length)settings.cards=[{alias:"",last4:""}];
+  localStorage.setItem(LS, JSON.stringify(settings));
+  renderCards(); refreshCardSelect(); buildTitle();
+  $("#settings").style.display="none"; alert("설정 저장됨");
+};
+function refreshCardSelect(){
+  $("#card").innerHTML = settings.cards.filter(c=>c.last4)
+    .map(c=>`<option value="${c.last4}">${c.alias||"카드"} (${c.last4})</option>`).join("") || `<option value="">설정에서 카드 추가</option>`;
 }
 
-$("#photoBox").onclick = () => $("#file").click();
-$("#file").onchange = e => {
-  const f = e.target.files[0]; if (!f) return;
-  const url = URL.createObjectURL(f);
-  $("#preview").src = url; $("#preview").style.display = "block";
-  $("#photoBox").textContent = "사진 선택됨 (다시 누르면 변경)";
-  $("#analyzeBtn").disabled = false;
+// ----- 제목 자동완성 -----
+function buildTitle(){
+  const cat=$("#category").value||"식대";
+  const team=settings.team||"";
+  const d=$("#date").value, cha=$("#cha").value||"1";
+  let dstr="";
+  if(/^\d{4}-\d{2}-\d{2}$/.test(d)){ const[y,m,day]=d.split("-"); dstr=`${y.slice(2)}년${m}월${day}일`; }
+  $("#title").value = `${cat}-${team}-${dstr}-${cha}차`;
+}
+["#category","#date","#cha"].forEach(s=>$(s).addEventListener("input",buildTitle));
+
+// ----- 사진/분석 -----
+$("#photoBox").onclick=()=>$("#file").click();
+$("#file").onchange=e=>{
+  const f=e.target.files[0]; if(!f)return;
+  $("#preview").src=URL.createObjectURL(f); $("#preview").style.display="block";
+  $("#photoBox").textContent="사진 선택됨 (다시 누르면 변경)"; $("#analyzeBtn").disabled=false;
+};
+$("#analyzeBtn").onclick=async()=>{
+  const f=$("#file").files[0]; if(!f)return;
+  const btn=$("#analyzeBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>분석 중...';
+  try{
+    const fd=new FormData(); fd.append("photo",f);
+    const r=await fetch("/api/ocr",{method:"POST",body:fd}).then(r=>r.json());
+    if(r.error)throw new Error(r.error);
+    const d=r.data;
+    $("#amount").value=d.amount||"";
+    $("#date").value=(/^\d{4}-\d{2}-\d{2}$/.test(d.date))?d.date:"";
+    $("#cha").value="1";
+    buildTitle();
+    $("#result").style.display="block"; $("#result").scrollIntoView({behavior:"smooth"});
+  }catch(e){ alert(e.message); }
+  finally{ btn.disabled=false; btn.textContent="AI로 자동 분석"; }
 };
 
-$("#analyzeBtn").onclick = async () => {
-  const f = $("#file").files[0]; if (!f) return;
-  const btn = $("#analyzeBtn");
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>분석 중...';
-  try {
-    const fd = new FormData(); fd.append("photo", f);
-    const r = await fetch("/api/ocr", { method: "POST", body: fd }).then(r => r.json());
-    if (r.error) throw new Error(r.error);
-    const d = r.data;
-    if (r.categories) { categories = r.categories; fillCategories(); }
-    $("#category").value = d.category || categories[0];
-    $("#title").value = d.title || "";
-    $("#amount").value = d.amount || "";
-    $("#date").value = (d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date)) ? d.date : "";
-    $("#vendor").value = d.vendor || "";
-    $("#result").style.display = "block";
-    $("#result").scrollIntoView({ behavior: "smooth" });
-  } catch (e) { alert(e.message); }
-  finally { btn.disabled = false; btn.textContent = "AI로 자동 분석"; }
+// ----- 등록 -----
+$("#submitBtn").onclick=async()=>{
+  if(!settings.team||!settings.dept){ alert("먼저 설정(부서/팀명)을 저장하세요."); $("#settings").style.display="block"; return; }
+  const btn=$("#submitBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>등록 중...';
+  $("#submitResult").innerHTML="";
+  try{
+    const fd=new FormData();
+    fd.append("photo",$("#file").files[0]);
+    fd.append("amount",$("#amount").value);
+    fd.append("date",$("#date").value);
+    fd.append("title",$("#title").value);
+    fd.append("category",$("#category").value);
+    fd.append("dept",settings.dept);
+    fd.append("registerType",settings.rtype||"법인카드 사용");
+    fd.append("managerName",settings.manager||"");
+    fd.append("cardLast4",$("#card").value||"");
+    fd.append("autoApprove",settings.approve?"true":"false");
+    const r=await fetch("/api/submit",{method:"POST",body:fd}).then(r=>r.json());
+    if(r.error){ showResult("err", r.error, r.screenshot); }
+    else { showResult("ok","등록 완료!", r.screenshot); }
+  }catch(e){ showResult("err", e.message); }
+  finally{ btn.disabled=false; btn.textContent="다우오피스에 등록"; }
+};
+function showResult(cls,msg,shot){
+  let html=`<div class="status ${cls}" style="margin-top:14px">${msg}</div>`;
+  if(shot) html+=`<details open><summary>다우오피스 화면 보기</summary><img id="shot" src="data:image/png;base64,${shot}"/></details>`;
+  $("#submitResult").innerHTML=html;
+}
+$("#resetBtn").onclick=()=>{
+  $("#file").value=""; $("#preview").style.display="none";
+  $("#photoBox").textContent="사진 찍기 / 앨범에서 선택";
+  $("#analyzeBtn").disabled=true; $("#result").style.display="none"; $("#submitResult").innerHTML="";
 };
 
-$("#submitBtn").onclick = async () => {
-  const f = $("#file").files[0];
-  const btn = $("#submitBtn");
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>등록 중...';
-  try {
-    const fd = new FormData();
-    fd.append("photo", f);
-    ["category","title","amount","date","vendor"].forEach(k => fd.append(k, $("#"+k).value));
-    const r = await fetch("/api/submit", { method: "POST", body: fd }).then(r => r.json());
-    if (r.error) throw new Error(r.error);
-    alert("다우오피스 등록 완료!");
-    $("#resetBtn").click();
-  } catch (e) { alert(e.message); }
-  finally { btn.disabled = false; btn.textContent = "다우오피스에 등록"; }
-};
-
-$("#resetBtn").onclick = () => {
-  $("#file").value = ""; $("#preview").style.display = "none";
-  $("#photoBox").textContent = "사진 찍기 / 앨범에서 선택";
-  $("#analyzeBtn").disabled = true; $("#result").style.display = "none";
-};
-
-loadStatus();
+init();
 </script>
 </body>
 </html>
