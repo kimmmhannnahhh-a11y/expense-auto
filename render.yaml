@@ -3,9 +3,11 @@ services:
     name: expense-auto
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npx playwright install chromium
     startCommand: npm start
     envVars:
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "0"
       - key: GEMINI_API_KEY
         sync: false
       - key: DAOU_LOGIN_URL
