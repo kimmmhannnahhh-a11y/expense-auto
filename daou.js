@@ -38,6 +38,12 @@ export async function submitToDaou(p) {
     "--disable-extensions", "--disable-background-networking",
   ] });
   const ctx = await browser.newContext({ acceptDownloads: false });
+  // 메모리 절약: 이미지/폰트/CSS/미디어 차단 (폼 입력엔 불필요)
+  await ctx.route("**/*", route => {
+    const t = route.request().resourceType();
+    if (t === "image" || t === "media" || t === "font" || t === "stylesheet") return route.abort();
+    return route.continue();
+  });
   const page = await ctx.newPage();
   // 한 동작이 오래 멈춰있지 않게 (못 찾으면 빨리 실패)
   page.setDefaultTimeout(10000);
