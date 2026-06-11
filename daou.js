@@ -7,6 +7,17 @@ export function daouReady() {
   return !!DAOU.loginUrl;
 }
 
+// 홍보/안내 팝업 닫기 (등록 버튼 가리는 모달 제거)
+async function closePopups(page, step) {
+  await page.keyboard.press("Escape").catch(() => {});
+  for (const t of ["오늘 하루 보지 않기", "오늘 하루 그만보기", "닫기"]) {
+    await page.getByRole("button", { name: t }).first().click({ timeout: 1200 }).catch(() => {});
+  }
+  await page.locator('.modal .close, [class*="layer"] [class*="close"], button[title="닫기"], button[aria-label="Close"], [class*="popup"] [class*="close"]')
+    .first().click({ timeout: 1200 }).catch(() => {});
+  if (step) step("팝업 닫기 시도");
+}
+
 // 라벨/텍스트 기반 자동등록. 실제 사이트에서 한번 돌려보며 미세조정 필요.
 // 에러나면 그 시점 화면 스크린샷(base64)을 함께 던져서 어디서 막혔는지 바로 보이게 함.
 export async function submitToDaou(p) {
@@ -38,8 +49,10 @@ export async function submitToDaou(p) {
     // (메뉴 경로가 길어 직접 URL 진입이 가능하면 그게 안정적. 우선 검색/메뉴로 시도)
     step("지출관리 이동 시도");
     await page.goto(DAOU.loginUrl.replace(/\/$/, "") + "/app/works", { waitUntil: "networkidle" }).catch(() => {});
+    await closePopups(page, step);
     await page.getByText("지출관리", { exact: false }).first().click({ timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(1500);
+    await closePopups(page, step);
     await page.getByRole("button", { name: "등록" }).first().click({ timeout: 8000 })
       .catch(async () => { await page.getByText("등록", { exact: true }).first().click(); });
     await page.waitForTimeout(2000);

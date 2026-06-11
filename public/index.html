@@ -2,78 +2,148 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-<title>법카 영수증 자동등록</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>법카 영수증 등록</title>
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-         background: #0f1116; color: #e8eaed; padding: 16px; max-width: 520px; margin: 0 auto; }
-  h1 { font-size: 19px; margin: 4px 0 14px; display:flex; justify-content:space-between; align-items:center; }
-  .gear { font-size: 13px; color:#9aa0aa; background:#1a1d24; border:1px solid #2a2e37; padding:7px 11px; border-radius:9px; }
-  .card { background: #1a1d24; border: 1px solid #2a2e37; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
-  label { display: block; font-size: 13px; color: #9aa0aa; margin: 12px 0 6px; }
-  input, select { width: 100%; padding: 12px; font-size: 16px; background: #0f1116; color: #e8eaed;
-                  border: 1px solid #2a2e37; border-radius: 10px; }
-  .row { display:flex; gap:8px; } .row > * { flex:1; }
-  button { width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border: 0; border-radius: 12px;
-           background: #3b82f6; color: #fff; margin-top: 14px; }
-  button.ghost { background: #2a2e37; color: #e8eaed; }
-  button.small { width:auto; padding:9px 12px; font-size:13px; margin-top:0; }
-  button:disabled { opacity: .5; }
-  .photo-box { border: 2px dashed #2a2e37; border-radius: 12px; padding: 26px 16px; text-align: center; color: #9aa0aa; }
-  #preview { max-width: 100%; border-radius: 10px; margin-top: 10px; display: none; }
-  .hint { font-size: 12px; color: #6b7280; margin-top: 8px; }
-  .status { font-size: 13px; padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
-  .ok { background: #14321f; color: #6ee7a8; } .warn { background: #3a2a14; color: #f5c463; }
-  .err { background:#3a1414; color:#f59e9e; }
-  .spin { display:inline-block; width:16px; height:16px; border:2px solid #fff; border-top-color:transparent;
-          border-radius:50%; animation: r 0.7s linear infinite; vertical-align:-3px; margin-right:6px; }
-  @keyframes r { to { transform: rotate(360deg); } }
-  .cardrow { display:flex; gap:8px; align-items:center; margin-top:8px; }
-  .cardrow input { flex:1; }
-  .del { background:#3a1414; color:#f59e9e; border:0; border-radius:8px; padding:10px 12px; }
-  #shot { max-width:100%; border-radius:10px; margin-top:10px; border:1px solid #2a2e37; }
-  details summary { cursor:pointer; color:#9aa0aa; font-size:13px; }
+  :root{
+    --bg:#F8FBFF; --bg2:#F3F8FF; --card:#FFFFFF;
+    --blue:#3B82F6; --blue2:#60A5FA; --blue3:#93C5FD;
+    --tint:#EAF5FF; --success:#22C55E;
+    --text:#1B2436; --muted:#8A94A6; --line:#E9F0FA;
+    --shadow:0 6px 24px rgba(59,130,246,.08);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:-apple-system,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif;
+       max-width:520px;margin:0 auto;padding:22px 18px 40px;}
+  h1{font-size:23px;font-weight:800;letter-spacing:-.02em;margin:0;}
+  .sub{color:var(--muted);font-size:14px;line-height:1.5;margin-top:6px;}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:20px;}
+  .gear{flex:none;display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);
+        color:var(--text);font-size:14px;font-weight:600;padding:9px 14px;border-radius:12px;box-shadow:var(--shadow);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;
+        box-shadow:var(--shadow);margin-bottom:16px;}
+  label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:16px 0 7px;}
+  label:first-child{margin-top:0;}
+  input,select{width:100%;padding:14px;font-size:16px;background:var(--bg2);color:var(--text);
+               border:1px solid var(--line);border-radius:13px;outline:none;transition:.15s;}
+  input:focus,select:focus{border-color:var(--blue2);background:#fff;}
+  .row{display:flex;gap:10px;}.row>*{flex:1;}
+  .btn{width:100%;border:0;border-radius:16px;font-size:16px;font-weight:700;padding:0;height:56px;
+       color:#fff;background:linear-gradient(90deg,var(--blue),var(--blue2));box-shadow:0 8px 20px rgba(59,130,246,.25);}
+  .btn:disabled{opacity:.45;box-shadow:none;}
+  .btn.ghost{background:var(--bg2);color:var(--text);box-shadow:none;border:1px solid var(--line);height:52px;font-weight:600;}
+  .btn.sm{height:46px;font-size:14px;border-radius:13px;}
+
+  /* 업로드 카드 */
+  .uploader{text-align:center;padding:14px 6px 6px;}
+  .camcircle{width:64px;height:64px;border-radius:50%;background:var(--tint);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+  .camcircle svg{width:30px;height:30px;stroke:var(--blue);fill:none;stroke-width:1.8;}
+  .up-title{font-size:17px;font-weight:700;}
+  .up-desc{color:var(--muted);font-size:13.5px;margin-top:5px;}
+  #preview{max-width:100%;border-radius:14px;margin-top:14px;display:none;}
+  .filebtn{margin-top:16px;width:100%;border:1px solid var(--line);background:var(--bg2);color:var(--blue);
+           font-weight:700;font-size:15px;padding:14px;border-radius:13px;}
+  .lock{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:12.5px;margin-top:12px;}
+  .lock svg{width:13px;height:13px;stroke:var(--muted);fill:none;stroke-width:1.8;}
+
+  .status{font-size:13px;font-weight:600;padding:11px 14px;border-radius:12px;margin-bottom:16px;display:none;}
+  .status.show{display:block;}
+  .status.warn{background:#FFF7E8;color:#B7791F;}
+  .status.err{background:#FDECEC;color:#D64545;}
+  .status.ok{background:#E9F9EF;color:#1B9E50;}
+
+  .spin{display:inline-block;width:17px;height:17px;border:2.5px solid rgba(255,255,255,.5);border-top-color:#fff;
+        border-radius:50%;animation:r .7s linear infinite;vertical-align:-3px;margin-right:7px;}
+  @keyframes r{to{transform:rotate(360deg);}}
+
+  /* 설정 슬라이드 */
+  .overlay{position:fixed;inset:0;background:rgba(20,30,50,.35);backdrop-filter:blur(2px);z-index:40;display:none;}
+  .overlay.show{display:block;}
+  .panel{position:fixed;top:0;right:0;bottom:0;width:100%;max-width:480px;background:var(--bg);z-index:50;
+         transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding:20px 18px 40px;}
+  .panel.show{transform:translateX(0);}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+  .panel-head h2{font-size:20px;font-weight:800;margin:0;}
+  .xbtn{width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:var(--card);font-size:18px;color:var(--muted);}
+  .sec-title{font-size:13px;font-weight:700;color:var(--muted);margin:4px 0 10px;}
+  .field-inline{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+  .field-inline label{width:64px;margin:0;flex:none;}
+  .field-inline input{flex:1;}
+
+  /* 부서 검색 리스트 */
+  .search{position:relative;}
+  .search svg{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:1.8;}
+  .deptlist{margin-top:10px;max-height:230px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+  .deptitem{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-radius:14px;
+            border:1px solid var(--line);background:var(--card);font-size:15px;font-weight:600;cursor:pointer;}
+  .deptitem.on{background:var(--tint);border-color:var(--blue2);}
+  .deptitem .chk{width:20px;height:20px;display:none;}
+  .deptitem.on .chk{display:block;}
+  .chk svg{width:20px;height:20px;stroke:var(--blue);fill:none;stroke-width:2.2;}
+
+  /* 카드 */
+  .cardrow{display:flex;align-items:center;gap:10px;padding:14px 14px;border:1px solid var(--line);
+           background:var(--card);border-radius:16px;margin-bottom:10px;}
+  .cardrow .chip{width:38px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--blue2),var(--blue3));flex:none;}
+  .cardrow input{flex:1;padding:10px;font-size:15px;}
+  .cardrow .alias{flex:1.3;}
+  .cardrow .last4{flex:1;}
+  .trash{flex:none;width:40px;height:40px;border-radius:11px;border:1px solid var(--line);background:var(--bg2);}
+  .trash svg{width:18px;height:18px;stroke:#D64545;fill:none;stroke-width:1.8;}
+
+  /* 토글 */
+  .toggle-wrap{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 0;}
+  .toggle-wrap .t-text strong{display:block;font-size:15px;font-weight:700;}
+  .toggle-wrap .t-text span{font-size:12.5px;color:var(--muted);}
+  .switch{position:relative;width:50px;height:30px;flex:none;}
+  .switch input{display:none;}
+  .slider{position:absolute;inset:0;background:#D7E3F2;border-radius:30px;transition:.2s;}
+  .slider:before{content:"";position:absolute;width:24px;height:24px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .switch input:checked + .slider{background:var(--blue);}
+  .switch input:checked + .slider:before{transform:translateX(20px);}
+
+  #shot{max-width:100%;border-radius:14px;margin-top:10px;border:1px solid var(--line);}
+  details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:10px;}
 </style>
 </head>
 <body>
-  <h1>법카 영수증 자동등록 <button class="gear" id="gearBtn">설정</button></h1>
+  <div class="head">
+    <div>
+      <h1>법카 영수증 등록</h1>
+      <div class="sub">영수증 사진만 올리면<br>AI가 자동으로 분석 후 등록합니다.</div>
+    </div>
+    <button class="gear" id="gearBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      설정
+    </button>
+  </div>
+
   <div id="status" class="status warn">상태 확인 중...</div>
 
-  <!-- 설정 -->
-  <div class="card" id="settings" style="display:none">
-    <strong>내 설정 (한 번만)</strong>
-    <label>내 다우오피스 아이디</label>
-    <input id="set-daouid" placeholder="다우 아이디" autocomplete="off" />
-    <label>내 다우오피스 비밀번호</label>
-    <input id="set-daoupw" type="password" placeholder="다우 비밀번호" autocomplete="off" />
-    <div class="hint">본인 계정으로 등록돼요. 이 기기에만 저장됩니다(공용 PC에서는 주의).</div>
-    <label>결산산입부서</label>
-    <select id="set-dept"></select>
-    <label>제목용 팀명 (예: 모바일유통사업부)</label>
-    <input id="set-team" placeholder="모바일유통사업부" />
-    <label>등록부서의 부서장 이름 (예: 김지훈)</label>
-    <input id="set-manager" placeholder="부서장 이름" />
-    <label>내 법인카드 (별칭 / 뒷4자리)</label>
-    <div id="cards"></div>
-    <button class="ghost small" id="addCard" style="margin-top:10px">+ 카드 추가</button>
-    <label style="margin-top:14px">
-      <input type="checkbox" id="set-approve" style="width:auto;vertical-align:-2px" /> 결재완료(상신)까지 자동으로
-    </label>
-    <button id="saveSet">설정 저장</button>
-  </div>
-
-  <!-- 사진 -->
+  <!-- 업로드 -->
   <div class="card">
-    <label>영수증 사진</label>
-    <div class="photo-box" id="photoBox">사진 찍기 / 앨범에서 선택</div>
-    <input id="file" type="file" accept="image/*" style="display:none" />
-    <img id="preview" />
-    <button id="analyzeBtn" disabled>AI로 자동 분석</button>
+    <div class="uploader">
+      <div class="camcircle" id="camIcon">
+        <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </div>
+      <div class="up-title">영수증 업로드</div>
+      <div class="up-desc">영수증 사진을 촬영하거나 선택하세요</div>
+      <img id="preview" />
+      <button class="filebtn" id="fileBtn">파일 선택</button>
+    </div>
+    <input id="file" type="file" accept="image/*" capture="environment" style="display:none" />
+    <input id="fileAlbum" type="file" accept="image/*" style="display:none" />
   </div>
 
-  <!-- 결과/입력 -->
-  <div class="card" id="result" style="display:none">
+  <button class="btn" id="analyzeBtn" disabled>분석 + 자동등록</button>
+  <div class="lock">
+    <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    등록된 영수증은 다우오피스에 안전하게 저장됩니다.
+  </div>
+
+  <!-- 분석 결과 -->
+  <div class="card" id="result" style="display:none;margin-top:16px">
     <label>등록유형</label>
     <select id="rtype"></select>
     <label>지출항목</label>
@@ -82,16 +152,58 @@
       <div><label>날짜</label><input id="date" type="date" /></div>
       <div><label>차수</label><input id="cha" type="number" value="1" min="1" /></div>
     </div>
-    <label>제목 (자동완성)</label>
+    <label>제목</label>
     <input id="title" />
     <label>금액 (원)</label>
     <input id="amount" inputmode="numeric" />
     <label>사용 카드</label>
     <select id="card"></select>
     <input id="manualCard" placeholder="카드 뒷4자리 직접 입력" maxlength="4" inputmode="numeric" style="display:none;margin-top:8px" />
-    <button id="submitBtn">다우오피스에 등록</button>
-    <button class="ghost" id="resetBtn">다시 하기</button>
+    <button class="btn" id="submitBtn" style="margin-top:18px">다우오피스에 등록</button>
+    <button class="btn ghost" id="resetBtn" style="margin-top:10px">다시 하기</button>
     <div id="submitResult"></div>
+  </div>
+
+  <!-- 설정 패널 -->
+  <div class="overlay" id="overlay"></div>
+  <div class="panel" id="settings">
+    <div class="panel-head"><h2>설정</h2><button class="xbtn" id="closeSettings">×</button></div>
+
+    <div class="card">
+      <div class="sec-title">다우오피스 계정</div>
+      <div class="field-inline"><label>아이디</label><input id="set-daouid" placeholder="아이디를 입력하세요" autocomplete="off" /></div>
+      <div class="field-inline"><label>비밀번호</label><input id="set-daoupw" type="password" placeholder="비밀번호를 입력하세요" autocomplete="off" /></div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">부서 선택</div>
+      <div class="search">
+        <input id="deptSearch" placeholder="부서명을 검색하세요" />
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      </div>
+      <div class="deptlist" id="deptList"></div>
+      <input type="hidden" id="set-dept" />
+      <label>제목용 팀명</label>
+      <input id="set-team" placeholder="모바일유통사업부" />
+      <label>등록부서의 부서장</label>
+      <input id="set-manager" placeholder="부서장 이름 (예: 김지훈)" />
+    </div>
+
+    <div class="card">
+      <div class="sec-title">법인카드</div>
+      <div id="cards"></div>
+      <button class="filebtn" id="addCard" style="margin-top:4px">+ 카드 추가</button>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">자동 처리 옵션</div>
+      <div class="toggle-wrap">
+        <div class="t-text"><strong>결재 완료까지 자동 처리</strong><span>영수증 등록부터 결재 완료까지 자동으로.</span></div>
+        <label class="switch"><input type="checkbox" id="set-approve" /><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <button class="btn" id="saveSet">설정 저장</button>
   </div>
 
 <script>
@@ -99,7 +211,9 @@ const $ = s => document.querySelector(s);
 const LS = "expauto_settings";
 let cfg = { categories:[], departments:[], registerTypes:[] };
 let settings = JSON.parse(localStorage.getItem(LS) || "{}");
-// 예전에 자동으로 넣었던 샘플 카드 4개 제거 (1회)
+let selectedFile = null;
+
+// 1회 마이그레이션: 예전 샘플카드 제거
 if (!settings._v2) {
   const preset = ["6888","7425","0787","1409"];
   if (Array.isArray(settings.cards)) settings.cards = settings.cards.filter(c=>!preset.includes(c.last4));
@@ -110,146 +224,148 @@ if (!settings.team) settings.team = "모바일유통사업부";
 if (!settings.dept) settings.dept = "모바일 유통사업부";
 localStorage.setItem(LS, JSON.stringify(settings));
 
-async function init() {
-  try {
-    cfg = await fetch("/api/config").then(r => r.json());
+async function init(){
+  try{
+    cfg = await fetch("/api/config").then(r=>r.json());
     $("#category").innerHTML = (cfg.categories||[]).map(c=>`<option value="${c.value}">${c.label}</option>`).join("");
     fillSelect("#rtype", cfg.registerTypes, "법인카드 사용");
-    fillSelect("#set-dept", cfg.departments);
-    if (cfg.ocr && cfg.daou) setStatus("ok", "준비 완료 — 분석 + 자동등록 가능");
-    else if (cfg.ocr) setStatus("warn", "사진 분석 가능 / 다우 로그인정보(환경변수) 필요");
-    else setStatus("warn", "서버에 GEMINI_API_KEY 설정 필요 (무료)");
-  } catch { setStatus("err", "서버 연결 실패"); }
-  loadSettings(); renderCards(); refreshCardSelect(); buildTitle();
+    if(cfg.ocr && cfg.daou) setStatus("", "");
+    else if(cfg.ocr) setStatus("warn","사진 분석 가능 / 다우 로그인정보 필요");
+    else setStatus("warn","서버에 GEMINI_API_KEY 설정 필요 (무료)");
+  }catch{ setStatus("err","서버 연결 실패"); }
+  loadSettings(); renderDept(); renderCards(); refreshCardSelect(); buildTitle();
 }
-function setStatus(c,m){ const s=$("#status"); s.className="status "+c; s.textContent=m; }
-function fillSelect(sel, arr, def){ $(sel).innerHTML = (arr||[]).map(v=>`<option ${v===def?"selected":""}>${v}</option>`).join(""); }
+function setStatus(c,m){ const s=$("#status"); if(!m){s.className="status";return;} s.className="status show "+c; s.textContent=m; }
+function fillSelect(sel,arr,def){ $(sel).innerHTML=(arr||[]).map(v=>`<option ${v===def?"selected":""}>${v}</option>`).join(""); }
 
-// ----- 설정 -----
-$("#gearBtn").onclick = () => { const s=$("#settings"); s.style.display = s.style.display==="none"?"block":"none"; };
+// ----- 설정 열기/닫기 -----
+function openSet(){ $("#overlay").classList.add("show"); $("#settings").classList.add("show"); }
+function closeSet(){ $("#overlay").classList.remove("show"); $("#settings").classList.remove("show"); }
+$("#gearBtn").onclick=openSet; $("#closeSettings").onclick=closeSet; $("#overlay").onclick=closeSet;
+
 function loadSettings(){
-  if(settings.dept) $("#set-dept").value=settings.dept;
   $("#set-daouid").value=settings.daouId||"";
   $("#set-daoupw").value=settings.daouPw||"";
   $("#set-team").value=settings.team||"";
   $("#set-manager").value=settings.manager||"";
+  $("#set-dept").value=settings.dept||"";
   $("#set-approve").checked=!!settings.approve;
 }
+
+// ----- 부서 검색 카드리스트 -----
+function renderDept(filter){
+  const list=(cfg.departments||[]).filter(d=>!filter||d.replace(/\s/g,"").includes(filter.replace(/\s/g,"")));
+  const cur=$("#set-dept").value;
+  $("#deptList").innerHTML=list.map(d=>`<div class="deptitem ${d===cur?"on":""}" data-d="${d}">
+    <span>${d}</span><span class="chk"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span></div>`).join("");
+  $("#deptList").querySelectorAll(".deptitem").forEach(el=>el.onclick=()=>{
+    $("#set-dept").value=el.dataset.d; renderDept($("#deptSearch").value);
+  });
+}
+$("#deptSearch").addEventListener("input",e=>renderDept(e.target.value));
+
+// ----- 카드 -----
 function renderCards(){
   $("#cards").innerHTML="";
   settings.cards.forEach((c,i)=>{
     const d=document.createElement("div"); d.className="cardrow";
-    d.innerHTML=`<input placeholder="별칭(예:최시형)" value="${c.alias||""}" data-i="${i}" data-k="alias"/>
-                 <input placeholder="뒷4자리" maxlength="4" value="${c.last4||""}" data-i="${i}" data-k="last4"/>
-                 <button class="del" data-i="${i}">x</button>`;
+    d.innerHTML=`<span class="chip"></span>
+                 <input class="alias" placeholder="카드 별칭" value="${c.alias||""}" data-i="${i}" data-k="alias"/>
+                 <input class="last4" placeholder="뒷4자리" maxlength="4" inputmode="numeric" value="${c.last4||""}" data-i="${i}" data-k="last4"/>
+                 <button class="trash" data-i="${i}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`;
     $("#cards").appendChild(d);
   });
-  $("#cards").querySelectorAll("input").forEach(inp=>inp.oninput=e=>{
-    settings.cards[e.target.dataset.i][e.target.dataset.k]=e.target.value;
-  });
-  $("#cards").querySelectorAll(".del").forEach(b=>b.onclick=e=>{
-    settings.cards.splice(e.target.dataset.i,1); if(!settings.cards.length)settings.cards=[{alias:"",last4:""}]; renderCards();
+  $("#cards").querySelectorAll("input").forEach(inp=>inp.oninput=e=>{ settings.cards[e.target.dataset.i][e.target.dataset.k]=e.target.value; });
+  $("#cards").querySelectorAll(".trash").forEach(b=>b.onclick=e=>{
+    const i=e.currentTarget.dataset.i; settings.cards.splice(i,1); renderCards();
   });
 }
 $("#addCard").onclick=()=>{ settings.cards.push({alias:"",last4:""}); renderCards(); };
+
 $("#saveSet").onclick=()=>{
   settings.daouId=$("#set-daouid").value; settings.daouPw=$("#set-daoupw").value;
   settings.dept=$("#set-dept").value; settings.team=$("#set-team").value;
-  settings.manager=$("#set-manager").value;
-  settings.approve=$("#set-approve").checked;
-  // 카드칸 값을 화면에서 직접 읽어서 저장 (확실하게)
+  settings.manager=$("#set-manager").value; settings.approve=$("#set-approve").checked;
   settings.cards=Array.from($("#cards").querySelectorAll(".cardrow")).map(row=>{
-    const ins=row.querySelectorAll("input");
-    return { alias:ins[0].value.trim(), last4:ins[1].value.trim() };
+    const ins=row.querySelectorAll("input"); return {alias:ins[0].value.trim(),last4:ins[1].value.trim()};
   }).filter(c=>c.alias||c.last4);
-  if(!settings.cards.length)settings.cards=[{alias:"",last4:""}];
   localStorage.setItem(LS, JSON.stringify(settings));
-  renderCards(); refreshCardSelect(); buildTitle();
-  $("#settings").style.display="none"; alert("설정 저장됨");
+  renderCards(); refreshCardSelect(); buildTitle(); closeSet();
 };
 function refreshCardSelect(){
-  const opts = settings.cards.filter(c=>c.last4)
-    .map(c=>`<option value="${c.last4}">${c.alias||"카드"} (${c.last4})</option>`).join("");
-  $("#card").innerHTML = opts + `<option value="__manual__">직접 입력 (뒷4자리)</option>`;
-  $("#manualCard").style.display = $("#card").value==="__manual__" ? "block" : "none";
+  const opts=settings.cards.filter(c=>c.last4).map(c=>`<option value="${c.last4}">${c.alias||"카드"} (${c.last4})</option>`).join("");
+  $("#card").innerHTML=opts+`<option value="__manual__">직접 입력 (뒷4자리)</option>`;
+  $("#manualCard").style.display = $("#card").value==="__manual__" ? "block":"none";
 }
-document.addEventListener("change", e=>{
-  if(e.target.id==="card") $("#manualCard").style.display = e.target.value==="__manual__" ? "block" : "none";
-});
+document.addEventListener("change",e=>{ if(e.target.id==="card") $("#manualCard").style.display=e.target.value==="__manual__"?"block":"none"; });
 
 // ----- 제목 자동완성 -----
 function buildTitle(){
-  const cat=$("#category").value||"식대";
-  const team=settings.team||"";
-  const d=$("#date").value, cha=$("#cha").value||"1";
-  let dstr="";
+  const cat=$("#category").value||"식대", team=settings.team||"";
+  const d=$("#date").value, cha=$("#cha").value||"1"; let dstr="";
   if(/^\d{4}-\d{2}-\d{2}$/.test(d)){ const[y,m,day]=d.split("-"); dstr=`${y.slice(2)}년${m}월${day}일`; }
-  $("#title").value = `${cat}-${team}-${dstr}-${cha}차`;
+  $("#title").value=`${cat}-${team}-${dstr}-${cha}차`;
 }
 ["#category","#date","#cha"].forEach(s=>$(s).addEventListener("input",buildTitle));
 
-// ----- 사진/분석 -----
-$("#photoBox").onclick=()=>$("#file").click();
-$("#file").onchange=e=>{
-  const f=e.target.files[0]; if(!f)return;
+// ----- 사진 (카메라 아이콘=촬영 / 파일선택=앨범) -----
+function onPick(f){
+  if(!f)return; selectedFile=f;
   $("#preview").src=URL.createObjectURL(f); $("#preview").style.display="block";
-  $("#photoBox").textContent="사진 선택됨 (다시 누르면 변경)"; $("#analyzeBtn").disabled=false;
-};
+  $("#analyzeBtn").disabled=false;
+}
+$("#camIcon").onclick=()=>$("#file").click();
+$("#fileBtn").onclick=()=>$("#fileAlbum").click();
+$("#file").onchange=e=>onPick(e.target.files[0]);
+$("#fileAlbum").onchange=e=>onPick(e.target.files[0]);
+
 $("#analyzeBtn").onclick=async()=>{
-  const f=$("#file").files[0]; if(!f)return;
+  if(!selectedFile)return;
   const btn=$("#analyzeBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>분석 중...';
   try{
-    const fd=new FormData(); fd.append("photo",f);
+    const fd=new FormData(); fd.append("photo",selectedFile);
     const r=await fetch("/api/ocr",{method:"POST",body:fd}).then(r=>r.json());
     if(r.error)throw new Error(r.error);
     const d=r.data;
     $("#amount").value=d.amount||"";
     $("#date").value=(/^\d{4}-\d{2}-\d{2}$/.test(d.date))?d.date:"";
-    $("#cha").value="1";
-    buildTitle();
+    $("#cha").value="1"; buildTitle();
     $("#result").style.display="block"; $("#result").scrollIntoView({behavior:"smooth"});
   }catch(e){ alert(e.message); }
-  finally{ btn.disabled=false; btn.textContent="AI로 자동 분석"; }
+  finally{ btn.disabled=false; btn.textContent="분석 + 자동등록"; }
 };
 
-// ----- 등록 -----
 $("#submitBtn").onclick=async()=>{
-  if(!settings.daouId||!settings.daouPw){ alert("먼저 설정에 다우오피스 아이디/비번을 저장하세요."); $("#settings").style.display="block"; return; }
-  if(!settings.team||!settings.dept){ alert("먼저 설정(부서/팀명)을 저장하세요."); $("#settings").style.display="block"; return; }
-  const btn=$("#submitBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>등록 중...';
-  $("#submitResult").innerHTML="";
+  if(!settings.daouId||!settings.daouPw){ alert("먼저 설정에 다우오피스 아이디/비번을 저장하세요."); openSet(); return; }
+  if(!settings.team||!settings.dept){ alert("먼저 설정(부서/팀명)을 저장하세요."); openSet(); return; }
+  const btn=$("#submitBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>등록 중...'; $("#submitResult").innerHTML="";
   try{
     const fd=new FormData();
-    fd.append("photo",$("#file").files[0]);
-    fd.append("daouId",settings.daouId||"");
-    fd.append("daouPw",settings.daouPw||"");
-    fd.append("amount",$("#amount").value);
-    fd.append("date",$("#date").value);
-    fd.append("title",$("#title").value);
-    fd.append("category",$("#category").value);
-    fd.append("dept",settings.dept);
-    fd.append("registerType",$("#rtype").value||"법인카드 사용");
+    fd.append("photo",selectedFile);
+    fd.append("daouId",settings.daouId||""); fd.append("daouPw",settings.daouPw||"");
+    fd.append("amount",$("#amount").value); fd.append("date",$("#date").value);
+    fd.append("title",$("#title").value); fd.append("category",$("#category").value);
+    fd.append("dept",settings.dept); fd.append("registerType",$("#rtype").value||"법인카드 사용");
     fd.append("managerName",settings.manager||"");
-    const cardVal = $("#card").value==="__manual__" ? $("#manualCard").value.trim() : $("#card").value;
-    fd.append("cardLast4", cardVal||"");
-    fd.append("autoApprove",settings.approve?"true":"false");
+    const cardVal=$("#card").value==="__manual__"?$("#manualCard").value.trim():$("#card").value;
+    fd.append("cardLast4",cardVal||""); fd.append("autoApprove",settings.approve?"true":"false");
     const resp=await fetch("/api/submit",{method:"POST",body:fd});
-    const txt=await resp.text();
-    let r; try{ r=JSON.parse(txt); }catch{ r={error:"서버가 응답을 못 줬어요(메모리 부족 가능). 잠시 후 다시 시도해보세요."}; }
-    if(r.error){ showResult("err", r.error, r.screenshot); }
-    else { showResult("ok","등록 완료!", r.screenshot); }
+    const txt=await resp.text(); let r;
+    try{ r=JSON.parse(txt); }catch{ r={error:"서버가 응답을 못 줬어요(메모리 부족 가능). 잠시 후 다시."}; }
+    if(r.error) showResult("err", r.error, r.screenshot);
+    else showResult("ok","등록 완료!", r.screenshot);
   }catch(e){ showResult("err", e.message); }
   finally{ btn.disabled=false; btn.textContent="다우오피스에 등록"; }
 };
 function showResult(cls,msg,shot){
-  let html=`<div class="status ${cls}" style="margin-top:14px">${msg}</div>`;
+  let html=`<div class="status show ${cls}" style="margin-top:16px">${msg}</div>`;
   if(shot) html+=`<details open><summary>다우오피스 화면 보기</summary><img id="shot" src="data:image/png;base64,${shot}"/></details>`;
   $("#submitResult").innerHTML=html;
 }
 $("#resetBtn").onclick=()=>{
-  $("#file").value=""; $("#preview").style.display="none";
-  $("#photoBox").textContent="사진 찍기 / 앨범에서 선택";
-  $("#analyzeBtn").disabled=true; $("#result").style.display="none"; $("#submitResult").innerHTML="";
+  selectedFile=null; $("#file").value=""; $("#fileAlbum").value="";
+  $("#preview").style.display="none"; $("#analyzeBtn").disabled=true;
+  $("#result").style.display="none"; $("#submitResult").innerHTML="";
 };
 
 init();
