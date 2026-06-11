@@ -113,7 +113,7 @@ localStorage.setItem(LS, JSON.stringify(settings));
 async function init() {
   try {
     cfg = await fetch("/api/config").then(r => r.json());
-    fillSelect("#category", cfg.categories);
+    $("#category").innerHTML = (cfg.categories||[]).map(c=>`<option value="${c.value}">${c.label}</option>`).join("");
     fillSelect("#rtype", cfg.registerTypes, "법인카드 사용");
     fillSelect("#set-dept", cfg.departments);
     if (cfg.ocr && cfg.daou) setStatus("ok", "준비 완료 — 분석 + 자동등록 가능");
