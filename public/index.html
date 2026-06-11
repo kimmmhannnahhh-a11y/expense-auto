@@ -105,6 +105,10 @@
 
   #shot{max-width:100%;border-radius:14px;margin-top:10px;border:1px solid var(--line);}
   details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:10px;}
+  .toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);z-index:90;
+         background:var(--success);color:#fff;font-weight:700;font-size:15px;padding:14px 26px;border-radius:14px;
+         box-shadow:0 8px 24px rgba(34,197,94,.35);opacity:0;transition:.25s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 </style>
 </head>
 <body>
@@ -205,6 +209,8 @@
     <button class="btn" id="saveSet">설정 저장</button>
   </div>
 
+  <div class="toast" id="toast"></div>
+
 <script>
 const $ = s => document.querySelector(s);
 const LS = "expauto_settings";
@@ -290,7 +296,13 @@ $("#saveSet").onclick=()=>{
   }).filter(c=>c.alias||c.last4);
   localStorage.setItem(LS, JSON.stringify(settings));
   renderCards(); refreshCardSelect(); buildTitle(); closeSet();
+  toast("설정이 저장됐어요");
 };
+let toastTimer;
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),1800);
+}
 function refreshCardSelect(){
   const opts=settings.cards.filter(c=>c.last4).map(c=>`<option value="${c.last4}">${c.alias||"카드"} (${c.last4})</option>`).join("");
   $("#card").innerHTML=opts+`<option value="__manual__">직접 입력 (뒷4자리)</option>`;
