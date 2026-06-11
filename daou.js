@@ -61,10 +61,12 @@ export async function submitToDaou(p) {
     // 2) Works > 지출관리 > 등록
     // (메뉴 경로가 길어 직접 URL 진입이 가능하면 그게 안정적. 우선 검색/메뉴로 시도)
     step("지출관리 이동 시도");
+    const isForm = /\/doc\/new\//.test(DAOU.expenseUrl);
     if (DAOU.expenseUrl) {
       // 주소로 바로 진입 (홍보팝업/메뉴 회피)
       await page.goto(DAOU.expenseUrl, { waitUntil: "networkidle" }).catch(() => {});
       await closePopups(page, step);
+      if (isForm) step("등록 폼 직접 진입");
     } else {
       await page.goto(DAOU.loginUrl.replace(/\/$/, "") + "/app/works", { waitUntil: "networkidle" }).catch(() => {});
       await closePopups(page, step);
@@ -72,9 +74,12 @@ export async function submitToDaou(p) {
       await page.waitForTimeout(1500);
       await closePopups(page, step);
     }
-    // 좌측 상단 [등록] 버튼
-    await page.getByRole("button", { name: "등록" }).first().click({ timeout: 8000 })
-      .catch(async () => { await page.getByText("등록", { exact: true }).first().click({ timeout: 8000 }); });
+    // 폼 직접진입(/doc/new)이 아니면 좌측 상단 [등록] 버튼 클릭
+    if (!isForm) {
+      await page.getByRole("button", { name: "등록" }).first().click({ timeout: 8000 })
+        .catch(async () => { await page.getByText("등록", { exact: true }).first().click({ timeout: 8000 }); });
+      await page.waitForTimeout(1500);
+    }
     await page.waitForTimeout(2000);
     step("등록 화면 진입");
 
