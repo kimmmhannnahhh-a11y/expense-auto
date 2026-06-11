@@ -34,16 +34,18 @@ async function clickSearchNear(frame, labelText) {
   await frame.locator(xp).first().click({ timeout: 8000 });
 }
 
-// 폼이 들어있는 프레임(iframe) 찾기 — 폼은 보통 iframe 안에 렌더됨
+// 폼이 들어있는 프레임 찾기 — 입력칸(input/select)이 가장 많은 프레임 = 폼
 async function getFormFrame(page, step) {
-  for (let tryN = 0; tryN < 6; tryN++) {
+  for (let tryN = 0; tryN < 8; tryN++) {
+    let best = null, bestN = 0;
     for (const f of page.frames()) {
       try {
-        const c = await f.locator('text=/결산산입부서|지출항목|지출 상세|등록 유형|등록유형/').first().count();
-        if (c > 0) { if (step) step("폼 프레임 발견"); return f; }
+        const n = await f.locator("input, select, textarea").count();
+        if (n > bestN) { bestN = n; best = f; }
       } catch {}
     }
-    await page.waitForTimeout(700);
+    if (best && bestN >= 4) { if (step) step(`폼 프레임 발견 (필드 ${bestN}개)`); return best; }
+    await page.waitForTimeout(800);
   }
   if (step) step("폼 프레임 못찾음 - 메인 사용");
   return page.mainFrame();
@@ -114,8 +116,20 @@ export async function submitToDaou(p) {
         .catch(async () => { await page.getByText("등록", { exact: true }).first().click({ timeout: 8000 }); });
       await page.waitForTimeout(1500);
     }
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(2500);
     step("등록 화면 진입");
+
+    // 진단: 모든 프레임 목록 + 각 프레임 필드 수
+    try {
+      const fi = [];
+      for (const f of page.frames()) {
+        try {
+          const n = await f.locator("input, select, textarea").count();
+          fi.push(`frame f=${n} | ${(f.url() || "").slice(0, 55)}`);
+        } catch (e) { fi.push(`frame X(접근불가) | ${(f.url() || "").slice(0, 45)}`); }
+      }
+      step("프레임목록:\n" + fi.join("\n"));
+    } catch {}
 
     // 폼이 들어있는 iframe 찾기 (폼은 보통 iframe 안)
     const F = await getFormFrame(page, step);
@@ -204,9 +218,11 @@ export async function submitToDaou(p) {
     }
 
     // 11) 확인
-    await F.getByRole("button", { name: "확인" }).first().click().catch(() => step("확인 버튼 실패(수동확인)"));
+    let confirmed = false;
+    await F.getByRole("button", { name: "확인" }).first().click()
+      .then(() => { confirmed = true; }).catch(() => step("확인 버튼 실패(수동확인)"));
     await page.waitForTimeout(1500);
-    step("확인 클릭");
+    step(confirmed ? "확인 클릭 성공" : "확인 클릭 실패");
 
     // 12) (옵션) 결재완료 — autoApprove=true 일 때만.
     if (p.autoApprove) {
@@ -216,7 +232,7 @@ export async function submitToDaou(p) {
 
     const shot = (await page.screenshot()).toString("base64");
     await browser.close();
-    return { ok: true, log, screenshot: shot };
+    return { ok: true, confirmed, log, screenshot: shot };
   } catch (e) {
     let shot = null;
     try { shot = (await page.screenshot()).toString("base64"); } catch {}

@@ -85,7 +85,7 @@ app.post("/api/submit", upload.single("photo"), async (req, res) => {
       autoApprove: b.autoApprove === "true",
       photo: req.file,
     });
-    res.json({ ok: true, log: result.log, screenshot: result.screenshot });
+    res.json({ ok: true, confirmed: result.confirmed, log: result.log, screenshot: result.screenshot });
   } catch (e) {
     res.status(500).json({ error: "등록 중 막힘: " + e.message, log: e.log, screenshot: e.screenshot });
   }

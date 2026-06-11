@@ -364,7 +364,8 @@ $("#submitBtn").onclick=async()=>{
     const txt=await resp.text(); let r;
     try{ r=JSON.parse(txt); }catch{ r={error:"서버가 응답을 못 줬어요(메모리 부족 가능). 잠시 후 다시."}; }
     if(r.error) showResult("err", r.error, r.screenshot, r.log);
-    else showResult("ok","등록 완료!", r.screenshot, r.log);
+    else if(r.confirmed) showResult("ok","등록 완료!", r.screenshot, r.log);
+    else showResult("warn","자동입력이 아직 덜 됐어요. 진단정보를 보고 맞춰갈게요.", r.screenshot, r.log);
   }catch(e){ showResult("err", e.message); }
   finally{ btn.disabled=false; btn.textContent="다우오피스에 등록"; }
 };
