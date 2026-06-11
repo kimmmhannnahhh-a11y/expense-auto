@@ -99,12 +99,13 @@ const $ = s => document.querySelector(s);
 const LS = "expauto_settings";
 let cfg = { categories:[], departments:[], registerTypes:[] };
 let settings = JSON.parse(localStorage.getItem(LS) || "{}");
-if (!settings.cards || !settings.cards.some(c=>c.last4)) settings.cards = [
-  {alias:"김명진(국민)",last4:"6888"},
-  {alias:"최시형(우리)",last4:"7425"},
-  {alias:"조광연(우리)",last4:"0787"},
-  {alias:"이한별(우리)",last4:"1409"},
-];
+// 예전에 자동으로 넣었던 샘플 카드 4개 제거 (1회)
+if (!settings._v2) {
+  const preset = ["6888","7425","0787","1409"];
+  if (Array.isArray(settings.cards)) settings.cards = settings.cards.filter(c=>!preset.includes(c.last4));
+  settings._v2 = true;
+}
+if (!settings.cards) settings.cards = [];
 if (!settings.team) settings.team = "모바일유통사업부";
 if (!settings.dept) settings.dept = "모바일 유통사업부";
 localStorage.setItem(LS, JSON.stringify(settings));
@@ -169,7 +170,8 @@ $("#saveSet").onclick=()=>{
 function refreshCardSelect(){
   const opts = settings.cards.filter(c=>c.last4)
     .map(c=>`<option value="${c.last4}">${c.alias||"카드"} (${c.last4})</option>`).join("");
-  $("#card").innerHTML = opts + `<option value="__manual__">+ 직접 입력 (목록에 없는 카드)</option>`;
+  $("#card").innerHTML = opts + `<option value="__manual__">직접 입력 (뒷4자리)</option>`;
+  $("#manualCard").style.display = $("#card").value==="__manual__" ? "block" : "none";
 }
 document.addEventListener("change", e=>{
   if(e.target.id==="card") $("#manualCard").style.display = e.target.value==="__manual__" ? "block" : "none";
