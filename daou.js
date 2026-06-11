@@ -71,7 +71,8 @@ export async function submitToDaou(p) {
   // 메모리 절약: 이미지/폰트/CSS/미디어 차단 (폼 입력엔 불필요)
   await ctx.route("**/*", route => {
     const t = route.request().resourceType();
-    if (t === "image" || t === "media" || t === "font" || t === "stylesheet") return route.abort();
+    // 큰 리소스(영상/폰트)만 차단. 이미지·CSS는 살려서 스크린샷/폼이 제대로 보이게.
+    if (t === "media" || t === "font") return route.abort();
     return route.continue();
   });
   const page = await ctx.newPage();
@@ -140,6 +141,13 @@ export async function submitToDaou(p) {
 
     // 폼이 들어있는 iframe 찾기 (폼은 보통 iframe 안)
     const F = await getFormFrame(page, step);
+
+    // 진단: 현재 주소 + 폼 프레임에 실제 보이는 글자(에러 메시지/안내문 확인용)
+    try {
+      step("현재주소: " + page.url());
+      const seen = await F.evaluate(() => (document.body?.innerText || "").replace(/\s+/g, " ").trim().slice(0, 300));
+      step("화면문구: " + (seen || "(빈 화면)"));
+    } catch {}
 
     // 진단: 폼 프레임의 버튼/인풋/셀렉트 목록 덤프
     try {
