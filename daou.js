@@ -9,12 +9,22 @@ export function daouReady() {
 
 // 홍보/안내 팝업 닫기 (등록 버튼 가리는 모달 제거)
 async function closePopups(page, step) {
-  await page.keyboard.press("Escape").catch(() => {});
-  for (const t of ["오늘 하루 보지 않기", "오늘 하루 그만보기", "닫기"]) {
-    await page.getByRole("button", { name: t }).first().click({ timeout: 1200 }).catch(() => {});
+  for (let i = 0; i < 2; i++) {
+    await page.keyboard.press("Escape").catch(() => {});
+    for (const t of ["오늘 하루 보지 않기", "오늘 하루 그만보기", "다시 보지 않기", "닫기", "확인"]) {
+      await page.getByRole("button", { name: t }).first().click({ timeout: 900 }).catch(() => {});
+      await page.getByText(t, { exact: true }).first().click({ timeout: 900 }).catch(() => {});
+    }
+    // 닫기 X (다우 레이어/다이얼로그 공통 클래스 + title/alt)
+    const sels = [
+      '.ui-dialog-titlebar-close', '.layer_close', '.btn_close', '.btnClose', '.ico_close',
+      '.popup_close', '[class*="close"]', 'button[title="닫기"]', 'a[title="닫기"]',
+      'button[aria-label="Close"]', 'img[alt="닫기"]',
+    ];
+    for (const s of sels) {
+      await page.locator(s).first().click({ timeout: 700 }).catch(() => {});
+    }
   }
-  await page.locator('.modal .close, [class*="layer"] [class*="close"], button[title="닫기"], button[aria-label="Close"], [class*="popup"] [class*="close"]')
-    .first().click({ timeout: 1200 }).catch(() => {});
   if (step) step("팝업 닫기 시도");
 }
 
@@ -29,6 +39,9 @@ export async function submitToDaou(p) {
   ] });
   const ctx = await browser.newContext({ acceptDownloads: false });
   const page = await ctx.newPage();
+  // 한 동작이 오래 멈춰있지 않게 (못 찾으면 빨리 실패)
+  page.setDefaultTimeout(10000);
+  page.setDefaultNavigationTimeout(25000);
   const log = [];
   const step = (m) => { log.push(m); console.log("[daou]", m); };
 
@@ -48,13 +61,20 @@ export async function submitToDaou(p) {
     // 2) Works > 지출관리 > 등록
     // (메뉴 경로가 길어 직접 URL 진입이 가능하면 그게 안정적. 우선 검색/메뉴로 시도)
     step("지출관리 이동 시도");
-    await page.goto(DAOU.loginUrl.replace(/\/$/, "") + "/app/works", { waitUntil: "networkidle" }).catch(() => {});
-    await closePopups(page, step);
-    await page.getByText("지출관리", { exact: false }).first().click({ timeout: 8000 }).catch(() => {});
-    await page.waitForTimeout(1500);
-    await closePopups(page, step);
+    if (DAOU.expenseUrl) {
+      // 주소로 바로 진입 (홍보팝업/메뉴 회피)
+      await page.goto(DAOU.expenseUrl, { waitUntil: "networkidle" }).catch(() => {});
+      await closePopups(page, step);
+    } else {
+      await page.goto(DAOU.loginUrl.replace(/\/$/, "") + "/app/works", { waitUntil: "networkidle" }).catch(() => {});
+      await closePopups(page, step);
+      await page.getByText("지출관리", { exact: false }).first().click({ timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      await closePopups(page, step);
+    }
+    // 좌측 상단 [등록] 버튼
     await page.getByRole("button", { name: "등록" }).first().click({ timeout: 8000 })
-      .catch(async () => { await page.getByText("등록", { exact: true }).first().click(); });
+      .catch(async () => { await page.getByText("등록", { exact: true }).first().click({ timeout: 8000 }); });
     await page.waitForTimeout(2000);
     step("등록 화면 진입");
 

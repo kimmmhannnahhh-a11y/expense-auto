@@ -3,6 +3,8 @@
 // 다우오피스 주소 + 로그인 — 비번은 코드에 넣지 말고 Render 환경변수로.
 export const DAOU = {
   loginUrl: process.env.DAOU_LOGIN_URL || "https://mj321.daouoffice.com/",
+  // 지출관리 '목록' 페이지 주소 (있으면 메뉴 안 거치고 바로 진입 → 홍보팝업 회피)
+  expenseUrl: process.env.DAOU_EXPENSE_URL || "",
   id: process.env.DAOU_ID || "",
   pw: process.env.DAOU_PW || "",
 };

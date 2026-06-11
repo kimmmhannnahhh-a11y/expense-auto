@@ -349,7 +349,7 @@ $("#analyzeBtn").onclick=async()=>{
 $("#submitBtn").onclick=async()=>{
   if(!settings.daouId||!settings.daouPw){ alert("먼저 설정에 다우오피스 아이디/비번을 저장하세요."); openSet(); return; }
   if(!settings.team||!settings.dept){ alert("먼저 설정(부서/팀명)을 저장하세요."); openSet(); return; }
-  const btn=$("#submitBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>등록 중...'; $("#submitResult").innerHTML="";
+  const btn=$("#submitBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span>등록 중... (최대 1분)'; $("#submitResult").innerHTML="";
   try{
     const fd=new FormData();
     fd.append("photo",selectedFile);
