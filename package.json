@@ -1,0 +1,17 @@
+{
+  "name": "expense-auto",
+  "version": "1.0.0",
+  "description": "다우오피스 법인카드 영수증 자동등록 - 사진 AI 인식 + works>지출관리 자동입력",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "playwright": "^1.49.1"
+  }
+}

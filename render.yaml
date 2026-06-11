@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: expense-auto
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DAOU_LOGIN_URL
+        sync: false
+      - key: DAOU_ID
+        sync: false
+      - key: DAOU_PW
+        sync: false
