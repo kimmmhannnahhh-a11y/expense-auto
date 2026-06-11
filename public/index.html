@@ -52,8 +52,6 @@
     <select id="set-dept"></select>
     <label>제목용 팀명 (예: 모바일유통사업부)</label>
     <input id="set-team" placeholder="모바일유통사업부" />
-    <label>등록유형</label>
-    <select id="set-rtype"></select>
     <label>등록부서의 부서장 이름 (예: 김지훈)</label>
     <input id="set-manager" placeholder="부서장 이름" />
     <label>내 법인카드 (별칭 / 뒷4자리)</label>
@@ -76,6 +74,8 @@
 
   <!-- 결과/입력 -->
   <div class="card" id="result" style="display:none">
+    <label>등록유형</label>
+    <select id="rtype"></select>
     <label>지출항목</label>
     <select id="category"></select>
     <div class="row">
@@ -88,6 +88,7 @@
     <input id="amount" inputmode="numeric" />
     <label>사용 카드</label>
     <select id="card"></select>
+    <input id="manualCard" placeholder="카드 뒷4자리 직접 입력" maxlength="4" inputmode="numeric" style="display:none;margin-top:8px" />
     <button id="submitBtn">다우오피스에 등록</button>
     <button class="ghost" id="resetBtn">다시 하기</button>
     <div id="submitResult"></div>
@@ -98,14 +99,19 @@ const $ = s => document.querySelector(s);
 const LS = "expauto_settings";
 let cfg = { categories:[], departments:[], registerTypes:[] };
 let settings = JSON.parse(localStorage.getItem(LS) || "{}");
-if (!settings.cards) settings.cards = [{alias:"",last4:""}];
+if (!settings.cards) settings.cards = [
+  {alias:"김명진(국민)",last4:"6888"},
+  {alias:"최시형(우리)",last4:"7425"},
+  {alias:"조광연(우리)",last4:"0787"},
+  {alias:"이한별(우리)",last4:"1409"},
+];
 
 async function init() {
   try {
     cfg = await fetch("/api/config").then(r => r.json());
     fillSelect("#category", cfg.categories);
+    fillSelect("#rtype", cfg.registerTypes, "법인카드 사용");
     fillSelect("#set-dept", cfg.departments);
-    fillSelect("#set-rtype", cfg.registerTypes, "법인카드 사용");
     if (cfg.ocr && cfg.daou) setStatus("ok", "준비 완료 — 분석 + 자동등록 가능");
     else if (cfg.ocr) setStatus("warn", "사진 분석 가능 / 다우 로그인정보(환경변수) 필요");
     else setStatus("warn", "서버에 GEMINI_API_KEY 설정 필요 (무료)");
@@ -119,7 +125,6 @@ function fillSelect(sel, arr, def){ $(sel).innerHTML = (arr||[]).map(v=>`<option
 $("#gearBtn").onclick = () => { const s=$("#settings"); s.style.display = s.style.display==="none"?"block":"none"; };
 function loadSettings(){
   if(settings.dept) $("#set-dept").value=settings.dept;
-  if(settings.rtype) $("#set-rtype").value=settings.rtype;
   $("#set-daouid").value=settings.daouId||"";
   $("#set-daoupw").value=settings.daouPw||"";
   $("#set-team").value=settings.team||"";
@@ -146,18 +151,26 @@ $("#addCard").onclick=()=>{ settings.cards.push({alias:"",last4:""}); renderCard
 $("#saveSet").onclick=()=>{
   settings.daouId=$("#set-daouid").value; settings.daouPw=$("#set-daoupw").value;
   settings.dept=$("#set-dept").value; settings.team=$("#set-team").value;
-  settings.rtype=$("#set-rtype").value; settings.manager=$("#set-manager").value;
+  settings.manager=$("#set-manager").value;
   settings.approve=$("#set-approve").checked;
-  settings.cards=settings.cards.filter(c=>c.alias||c.last4);
+  // 카드칸 값을 화면에서 직접 읽어서 저장 (확실하게)
+  settings.cards=Array.from($("#cards").querySelectorAll(".cardrow")).map(row=>{
+    const ins=row.querySelectorAll("input");
+    return { alias:ins[0].value.trim(), last4:ins[1].value.trim() };
+  }).filter(c=>c.alias||c.last4);
   if(!settings.cards.length)settings.cards=[{alias:"",last4:""}];
   localStorage.setItem(LS, JSON.stringify(settings));
   renderCards(); refreshCardSelect(); buildTitle();
   $("#settings").style.display="none"; alert("설정 저장됨");
 };
 function refreshCardSelect(){
-  $("#card").innerHTML = settings.cards.filter(c=>c.last4)
-    .map(c=>`<option value="${c.last4}">${c.alias||"카드"} (${c.last4})</option>`).join("") || `<option value="">설정에서 카드 추가</option>`;
+  const opts = settings.cards.filter(c=>c.last4)
+    .map(c=>`<option value="${c.last4}">${c.alias||"카드"} (${c.last4})</option>`).join("");
+  $("#card").innerHTML = opts + `<option value="__manual__">+ 직접 입력 (목록에 없는 카드)</option>`;
 }
+document.addEventListener("change", e=>{
+  if(e.target.id==="card") $("#manualCard").style.display = e.target.value==="__manual__" ? "block" : "none";
+});
 
 // ----- 제목 자동완성 -----
 function buildTitle(){
@@ -210,9 +223,10 @@ $("#submitBtn").onclick=async()=>{
     fd.append("title",$("#title").value);
     fd.append("category",$("#category").value);
     fd.append("dept",settings.dept);
-    fd.append("registerType",settings.rtype||"법인카드 사용");
+    fd.append("registerType",$("#rtype").value||"법인카드 사용");
     fd.append("managerName",settings.manager||"");
-    fd.append("cardLast4",$("#card").value||"");
+    const cardVal = $("#card").value==="__manual__" ? $("#manualCard").value.trim() : $("#card").value;
+    fd.append("cardLast4", cardVal||"");
     fd.append("autoApprove",settings.approve?"true":"false");
     const r=await fetch("/api/submit",{method:"POST",body:fd}).then(r=>r.json());
     if(r.error){ showResult("err", r.error, r.screenshot); }

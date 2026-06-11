@@ -10,7 +10,7 @@ app.use(express.static("public"));
 
 // 무료 OCR: 구글 Gemini API (aistudio.google.com 에서 무료 키 발급, 카드 등록 불필요)
 const GEMINI_KEY = process.env.GEMINI_API_KEY || "";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 app.get("/api/config", (_req, res) => {
   res.json({
