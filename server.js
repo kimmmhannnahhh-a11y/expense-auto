@@ -22,36 +22,53 @@ app.get("/api/config", (_req, res) => {
   });
 });
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Gemini 호출: 혼잡(503/high demand) 시 재시도 + 다른 모델로 자동 전환
+async function geminiOCR(b64, mime) {
+  const prompt = `이 영수증 사진을 보고 아래 JSON만 출력해. 설명 금지.
+{"amount": 숫자(원,콤마없이), "date": "YYYY-MM-DD", "vendor": "가게/상호명"}
+못 읽으면 빈 문자열 또는 0.`;
+  const body = {
+    contents: [{ parts: [
+      { inline_data: { mime_type: mime, data: b64 } },
+      { text: prompt },
+    ] }],
+    generationConfig: { responseMimeType: "application/json" },
+  };
+  // 기본 모델 + 대체 모델들 (중복 제거)
+  const models = [...new Set([GEMINI_MODEL, "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"])];
+  let lastErr;
+  for (const model of models) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`;
+        const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const j = await r.json();
+        if (!r.ok) {
+          const msg = j.error?.message || ("HTTP " + r.status);
+          lastErr = new Error(msg);
+          // 혼잡/일시 오류면 잠깐 쉬고 재시도(또는 다음 모델)
+          if (r.status === 503 || r.status === 429 || /high demand|overloaded|UNAVAILABLE/i.test(msg)) { await sleep(900); continue; }
+          throw lastErr; // 그 외 오류는 다음 모델로
+        }
+        const text = j.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        return JSON.parse(text.replace(/```json|```/g, "").trim());
+      } catch (e) { lastErr = e; await sleep(400); }
+    }
+  }
+  throw lastErr || new Error("모든 모델 실패");
+}
+
 // 영수증 사진 -> 금액/날짜/상호 추출 (Gemini)
 app.post("/api/ocr", upload.single("photo"), async (req, res) => {
   try {
     if (!GEMINI_KEY) return res.status(500).json({ error: "서버에 GEMINI_API_KEY가 없어요." });
     if (!req.file) return res.status(400).json({ error: "사진이 없어요." });
-
-    const b64 = req.file.buffer.toString("base64");
-    const prompt = `이 영수증 사진을 보고 아래 JSON만 출력해. 설명 금지.
-{"amount": 숫자(원,콤마없이), "date": "YYYY-MM-DD", "vendor": "가게/상호명"}
-못 읽으면 빈 문자열 또는 0.`;
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`;
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [
-          { inline_data: { mime_type: req.file.mimetype || "image/jpeg", data: b64 } },
-          { text: prompt },
-        ] }],
-        generationConfig: { responseMimeType: "application/json" },
-      }),
-    });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error?.message || "Gemini 오류");
-    const text = j.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    const data = JSON.parse(text.replace(/```json|```/g, "").trim());
+    const data = await geminiOCR(req.file.buffer.toString("base64"), req.file.mimetype || "image/jpeg");
     res.json({ ok: true, data });
   } catch (e) {
-    res.status(500).json({ error: "사진 분석 실패: " + e.message });
+    res.status(500).json({ error: "사진 분석 실패(잠시 후 다시): " + e.message });
   }
 });
 
