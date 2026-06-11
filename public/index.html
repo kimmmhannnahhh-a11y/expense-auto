@@ -178,11 +178,10 @@
     <div class="card">
       <div class="sec-title">부서 선택</div>
       <div class="search">
-        <input id="deptSearch" placeholder="부서명을 검색하세요" />
+        <input id="set-dept" placeholder="부서명 입력 또는 아래에서 선택" autocomplete="off" />
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
       </div>
       <div class="deptlist" id="deptList"></div>
-      <input type="hidden" id="set-dept" />
       <label>제목용 팀명</label>
       <input id="set-team" placeholder="모바일유통사업부" />
       <label>등록부서의 부서장</label>
@@ -252,17 +251,17 @@ function loadSettings(){
   $("#set-approve").checked=!!settings.approve;
 }
 
-// ----- 부서 검색 카드리스트 -----
-function renderDept(filter){
-  const list=(cfg.departments||[]).filter(d=>!filter||d.replace(/\s/g,"").includes(filter.replace(/\s/g,"")));
-  const cur=$("#set-dept").value;
-  $("#deptList").innerHTML=list.map(d=>`<div class="deptitem ${d===cur?"on":""}" data-d="${d}">
+// ----- 부서: 직접 입력 + 목록 선택 둘 다 -----
+function renderDept(){
+  const val=$("#set-dept").value.trim();
+  const list=(cfg.departments||[]).filter(d=>!val||d.replace(/\s/g,"").includes(val.replace(/\s/g,"")));
+  $("#deptList").innerHTML=list.map(d=>`<div class="deptitem ${d===val?"on":""}" data-d="${d}">
     <span>${d}</span><span class="chk"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span></div>`).join("");
   $("#deptList").querySelectorAll(".deptitem").forEach(el=>el.onclick=()=>{
-    $("#set-dept").value=el.dataset.d; renderDept($("#deptSearch").value);
+    $("#set-dept").value=el.dataset.d; renderDept();
   });
 }
-$("#deptSearch").addEventListener("input",e=>renderDept(e.target.value));
+$("#set-dept").addEventListener("input",renderDept);
 
 // ----- 카드 -----
 function renderCards(){
