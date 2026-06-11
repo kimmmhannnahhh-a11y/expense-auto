@@ -28,6 +28,9 @@ async function closePopups(page, step) {
   if (step) step("팝업 닫기 시도");
 }
 
+// 정규식 특수문자 이스케이프 (검색 결과 정확 매칭용)
+function escapeReg(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
 // 라벨 텍스트 옆의 '검색' 버튼/링크/인풋 클릭 (유연하게)
 async function clickSearchNear(frame, labelText) {
   const xp = `xpath=//*[contains(normalize-space(.),"${labelText}")]/following::*[(self::button or self::a or (self::input and (@type="button" or @type="submit" or @type="image"))) and (contains(normalize-space(.),"검색") or contains(@value,"검색"))][1]`;
@@ -102,45 +105,27 @@ export async function submitToDaou(p) {
     }
     step("로그인 완료");
 
-    // 2) Works > 지출관리 > 등록
-    // (메뉴 경로가 길어 직접 URL 진입이 가능하면 그게 안정적. 우선 검색/메뉴로 시도)
-    step("지출관리 이동 시도");
-    const isForm = /\/doc\/new\//.test(DAOU.expenseUrl);
-    if (DAOU.expenseUrl) {
-      // 주소로 바로 진입 (홍보팝업/메뉴 회피)
-      await page.goto(DAOU.expenseUrl, { waitUntil: "networkidle" }).catch(() => {});
-      await closePopups(page, step);
-      if (isForm) step("등록 폼 직접 진입");
-    } else {
-      await page.goto(DAOU.loginUrl.replace(/\/$/, "") + "/app/works", { waitUntil: "networkidle" }).catch(() => {});
-      await closePopups(page, step);
-      await page.getByText("지출관리", { exact: false }).first().click({ timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(1500);
-      await closePopups(page, step);
-    }
-    // 폼 직접진입(/doc/new)이 아니면 좌측 상단 [등록] 버튼 클릭
-    if (!isForm) {
-      await page.getByRole("button", { name: "등록" }).first().click({ timeout: 8000 })
-        .catch(async () => { await page.getByText("등록", { exact: true }).first().click({ timeout: 8000 }); });
-      await page.waitForTimeout(1500);
-    }
-    await page.waitForTimeout(2500);
+    // 2) 지출관리 앱 홈 → [등록] 클릭 → 등록 폼(doc/new) 진입
+    //    ⚠ applet/22937/ 로 직접 가면 Works 홈으로 튕긴다. 반드시 /home 으로 가서 [등록]을 눌러야 폼이 뜬다.
+    step("지출관리 앱 이동");
+    const EXPENSE_HOME = DAOU.loginUrl.replace(/\/+$/, "") + "/gw/app/works/applet/22937/home";
+    await page.goto(EXPENSE_HOME, { waitUntil: "networkidle" }).catch(() => {});
+    await closePopups(page, step);
+    // 좌측 상단 [등록] 버튼 (a.btn_function). '일괄 등록'·'내가 등록한 데이터'와 섞이지 않게 정확히 '등록'.
+    await page.locator("a.btn_function", { hasText: /^\s*등록\s*$/ }).first().click({ timeout: 10000 })
+      .catch(() => page.locator("a").filter({ hasText: /^등록$/ }).first().click({ timeout: 8000 }))
+      .catch(() => step("등록 버튼 클릭 실패(수동확인)"));
+    await page.waitForURL(/\/doc\/new\//, { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(2000);
     step("등록 화면 진입");
 
-    // 진단: 모든 프레임 목록 + 각 프레임 필드 수
+    // 폼은 메인 문서에 있다 (iframe 아님). 폼 로딩 확인: select 가 뜰 때까지 대기.
+    const F = page.mainFrame();
+    await F.waitForSelector("select", { timeout: 12000 }).catch(() => {});
     try {
-      const fi = [];
-      for (const f of page.frames()) {
-        try {
-          const n = await f.locator("input, select, textarea").count();
-          fi.push(`frame f=${n} | ${(f.url() || "").slice(0, 55)}`);
-        } catch (e) { fi.push(`frame X(접근불가) | ${(f.url() || "").slice(0, 45)}`); }
-      }
-      step("프레임목록:\n" + fi.join("\n"));
+      const nf = await F.locator("input, select, textarea").count();
+      step(`폼 필드 ${nf}개 감지`);
     } catch {}
-
-    // 폼이 들어있는 iframe 찾기 (폼은 보통 iframe 안)
-    const F = await getFormFrame(page, step);
 
     // 진단: 현재 주소 + 폼 프레임에 실제 보이는 글자(에러 메시지/안내문 확인용)
     try {
@@ -166,82 +151,91 @@ export async function submitToDaou(p) {
       step("폼요소:\n" + dump);
     } catch {}
 
-    // 3) 등록유형
+    // ── 폼 입력 ──
+    // ※ 폼의 텍스트칸 name 은 매번 랜덤(_08cgz460d 등)이라 라벨 기준으로 잡는다.
+    // ※ select 는 결산산입부서/등록유형 2개뿐이고 둘 다 name="select_option" → 옵션 내용으로 구분.
+
+    // 3) 등록유형 (옵션 '법인카드 사용'을 가진 select)
     if (p.registerType) {
-      await F.getByText(/등록\s*유형/).locator("xpath=following::select[1]")
-        .selectOption({ label: p.registerType }).catch(() => step("등록유형 선택 실패(수동확인)"));
+      await F.locator("select", { has: F.locator('option:text-is("법인카드 사용")') }).first()
+        .selectOption({ label: p.registerType })
+        .then(() => step("등록유형: " + p.registerType))
+        .catch(() => step("등록유형 선택 실패(수동확인)"));
     }
 
-    // 4) 파일첨부 (영수증 사진)
+    // 4) 결산산입부서 (옵션 '경영지원실'을 가진 select)
+    if (p.dept) {
+      await F.locator("select", { has: F.locator('option:text-is("경영지원실")') }).first()
+        .selectOption({ label: p.dept })
+        .then(() => step("부서: " + p.dept))
+        .catch(() => step("부서 선택 실패(수동확인) — 부서명이 목록과 정확히 일치해야 함: " + p.dept));
+    }
+
+    // 5) 금액 (입력 후 자동계산 딜레이 있음)
+    if (p.amount) {
+      const amt = String(p.amount).replace(/[^\d]/g, "");
+      await F.locator('xpath=//*[normalize-space()="금액º"]/following::input[1]').first().fill(amt)
+        .then(() => step("금액: " + amt)).catch(() => step("금액 입력 실패(수동확인)"));
+      await page.waitForTimeout(900);
+    }
+
+    // 6) 제목
+    if (p.title) {
+      await F.locator('xpath=//*[normalize-space()="제목º"]/following::input[1]').first().fill(p.title)
+        .then(() => step("제목 입력")).catch(() => step("제목 입력 실패(수동확인)"));
+    }
+
+    // 7) 지출항목 — [검색] → '데이터 검색' 팝업(.layer_app_search)에서 검색 후 정확히 일치 항목 클릭
+    if (p.category) {
+      try {
+        await F.locator('xpath=//*[normalize-space()="지출항목º"]/following::a[normalize-space()="검색"][1]').first().click({ timeout: 8000 });
+        await page.waitForSelector(".layer_app_search input.txt_mini", { timeout: 8000 });
+        const sbox = page.locator(".layer_app_search input.txt_mini");
+        await sbox.fill(p.category);
+        await sbox.press("Enter");
+        await page.waitForTimeout(1300);
+        await page.locator(".layer_app_search a").filter({ hasText: new RegExp("^" + escapeReg(p.category) + "$") }).first().click({ timeout: 6000 });
+        step("지출항목: " + p.category);
+      } catch { step("지출항목 선택 실패(수동확인)"); }
+    }
+
+    // 8) 사용카드 — [검색] → 뒷4자리 검색 후 결과 클릭
+    if (p.cardLast4) {
+      try {
+        await F.locator('xpath=//*[normalize-space()="사용카드"]/following::a[normalize-space()="검색"][1]').first().click({ timeout: 8000 });
+        await page.waitForSelector(".layer_app_search input.txt_mini", { timeout: 8000 });
+        const cbox = page.locator(".layer_app_search input.txt_mini");
+        await cbox.fill(p.cardLast4);
+        await cbox.press("Enter");
+        await page.waitForTimeout(1300);
+        await page.locator(".layer_app_search a").filter({ hasText: new RegExp(escapeReg(p.cardLast4)) }).first().click({ timeout: 6000 });
+        step("카드: " + p.cardLast4);
+      } catch { step("카드 선택 실패(수동확인)"); }
+    }
+
+    // 9) 파일첨부 (영수증 사진) — [카드전표] 첨부 필수
     if (p.photo) {
-      await F.locator('input[type="file"]').first().setInputFiles({
+      await F.locator('xpath=//*[normalize-space()="파일첨부"]/following::input[@type="file"][1]').first().setInputFiles({
         name: p.photo.originalname || "receipt.jpg",
         mimeType: p.photo.mimetype || "image/jpeg",
         buffer: p.photo.buffer,
       }).then(() => step("사진 첨부")).catch(() => step("파일첨부 실패(수동확인)"));
+      await page.waitForTimeout(1500);
     }
 
-    // 5) 결산산입부서
-    if (p.dept) {
-      await F.getByText("결산산입부서").locator("xpath=following::select[1]")
-        .selectOption({ label: p.dept }).catch(() => step("부서 선택 실패(수동확인)"));
-    }
-
-    // 6) 금액
-    if (p.amount) {
-      await F.getByText("금액").locator("xpath=following::input[1]").fill(String(p.amount))
-        .then(() => step("금액 입력: " + p.amount)).catch(() => step("금액 입력 실패(수동확인)"));
-    }
-
-    // 7) 지출항목 검색 -> 데이터검색 창에서 선택
-    if (p.category) {
-      await clickSearchNear(F, "지출항목")
-        .catch(() => F.getByRole("button", { name: "검색" }).first().click().catch(() => {}));
-      await page.waitForTimeout(1000);
-      await F.getByRole("textbox").last().fill(p.category).catch(() => {});
-      await F.getByRole("button", { name: "검색" }).last().click().catch(() => {});
-      await page.waitForTimeout(1000);
-      await F.getByText(p.category, { exact: true }).first().click()
-        .catch(() => F.getByRole("row", { name: new RegExp(p.category) }).first().click().catch(() => step("지출항목 선택 실패(수동확인)")));
-      step("지출항목 선택: " + p.category);
-    }
-
-    // 8) 제목
-    if (p.title) {
-      await F.getByText("제목", { exact: false }).locator("xpath=following::input[1]").fill(p.title)
-        .then(() => step("제목 입력")).catch(() => step("제목 입력 실패(수동확인)"));
-    }
-
-    // 9) 등록부서의 부서장 추가
-    if (p.managerName) {
-      await F.getByText("등록부서의 부서장").locator("xpath=following::*[contains(text(),'추가')][1]").click().catch(() => {});
-      await page.waitForTimeout(700);
-      await F.getByRole("textbox").last().fill(p.managerName).catch(() => {});
-      await page.waitForTimeout(900);
-      await F.getByText(p.managerName, { exact: false }).first().click().catch(() => step("부서장 선택 실패(수동확인)"));
-    }
-
-    // 10) 사용카드 검색 -> 데이터검색에서 뒷번호로 선택
-    if (p.cardLast4) {
-      await clickSearchNear(F, "사용카드").catch(() => {});
-      await page.waitForTimeout(1000);
-      await F.getByRole("textbox").last().fill(p.cardLast4).catch(() => {});
-      await F.getByRole("button", { name: "검색" }).last().click().catch(() => {});
-      await page.waitForTimeout(1000);
-      await F.getByText(p.cardLast4, { exact: false }).first().click().catch(() => step("카드 선택 실패(수동확인)"));
-      step("카드 선택: " + p.cardLast4);
-    }
-
-    // 11) 확인
+    // 10) 확인 (등록 실행) — a.btn-confirm
     let confirmed = false;
-    await F.getByRole("button", { name: "확인" }).first().click()
+    await F.locator("a.btn-confirm").first().click({ timeout: 8000 })
       .then(() => { confirmed = true; }).catch(() => step("확인 버튼 실패(수동확인)"));
     await page.waitForTimeout(1500);
+    // 확인 후 2차 확인 레이어가 뜨면 처리
+    await page.locator('.go_popup a.btn-confirm, .layer_normal a:has-text("확인")').first().click({ timeout: 2500 }).catch(() => {});
+    await page.waitForTimeout(1200);
     step(confirmed ? "확인 클릭 성공" : "확인 클릭 실패");
 
-    // 12) (옵션) 결재완료 — autoApprove=true 일 때만.
+    // 11) (옵션) 결재완료 — autoApprove=true 일 때만.
     if (p.autoApprove) {
-      await F.getByRole("button", { name: /결재완료|결제완료/ }).first().click().catch(() => step("결재완료 실패(수동확인)"));
+      await F.getByRole("button", { name: /결재완료|결제완료|상신/ }).first().click({ timeout: 5000 }).catch(() => step("결재완료 실패(수동확인)"));
       step("결재완료 클릭");
     }
 
