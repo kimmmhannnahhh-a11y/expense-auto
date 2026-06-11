@@ -99,7 +99,7 @@ const $ = s => document.querySelector(s);
 const LS = "expauto_settings";
 let cfg = { categories:[], departments:[], registerTypes:[] };
 let settings = JSON.parse(localStorage.getItem(LS) || "{}");
-if (!settings.cards) settings.cards = [
+if (!settings.cards || !settings.cards.some(c=>c.last4)) settings.cards = [
   {alias:"김명진(국민)",last4:"6888"},
   {alias:"최시형(우리)",last4:"7425"},
   {alias:"조광연(우리)",last4:"0787"},
@@ -107,6 +107,7 @@ if (!settings.cards) settings.cards = [
 ];
 if (!settings.team) settings.team = "모바일유통사업부";
 if (!settings.dept) settings.dept = "모바일 유통사업부";
+localStorage.setItem(LS, JSON.stringify(settings));
 
 async function init() {
   try {
