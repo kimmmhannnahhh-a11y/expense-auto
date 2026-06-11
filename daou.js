@@ -29,9 +29,24 @@ async function closePopups(page, step) {
 }
 
 // 라벨 텍스트 옆의 '검색' 버튼/링크/인풋 클릭 (유연하게)
-async function clickSearchNear(page, labelText) {
+async function clickSearchNear(frame, labelText) {
   const xp = `xpath=//*[contains(normalize-space(.),"${labelText}")]/following::*[(self::button or self::a or (self::input and (@type="button" or @type="submit" or @type="image"))) and (contains(normalize-space(.),"검색") or contains(@value,"검색"))][1]`;
-  await page.locator(xp).first().click({ timeout: 8000 });
+  await frame.locator(xp).first().click({ timeout: 8000 });
+}
+
+// 폼이 들어있는 프레임(iframe) 찾기 — 폼은 보통 iframe 안에 렌더됨
+async function getFormFrame(page, step) {
+  for (let tryN = 0; tryN < 6; tryN++) {
+    for (const f of page.frames()) {
+      try {
+        const c = await f.locator('text=/결산산입부서|지출항목|지출 상세|등록 유형|등록유형/').first().count();
+        if (c > 0) { if (step) step("폼 프레임 발견"); return f; }
+      } catch {}
+    }
+    await page.waitForTimeout(700);
+  }
+  if (step) step("폼 프레임 못찾음 - 메인 사용");
+  return page.mainFrame();
 }
 
 // 라벨/텍스트 기반 자동등록. 실제 사이트에서 한번 돌려보며 미세조정 필요.
@@ -102,16 +117,19 @@ export async function submitToDaou(p) {
     await page.waitForTimeout(2000);
     step("등록 화면 진입");
 
-    // 진단: 폼의 버튼/인풋/셀렉트 목록 덤프 (셀렉터 정확히 잡으려고)
+    // 폼이 들어있는 iframe 찾기 (폼은 보통 iframe 안)
+    const F = await getFormFrame(page, step);
+
+    // 진단: 폼 프레임의 버튼/인풋/셀렉트 목록 덤프
     try {
-      const dump = await page.evaluate(() => {
+      const dump = await F.evaluate(() => {
         const out = [];
         document.querySelectorAll("button, a, input, select, textarea").forEach((e, i) => {
-          if (i > 140) return;
+          if (i > 160) return;
           const tag = e.tagName.toLowerCase();
           const type = e.type ? `[${e.type}]` : "";
           const id = e.name || e.id || "";
-          const txt = (e.value || e.innerText || e.placeholder || "").trim().replace(/\s+/g, " ").slice(0, 24);
+          const txt = (e.value || e.innerText || e.placeholder || "").trim().replace(/\s+/g, " ").slice(0, 22);
           if (txt || id) out.push(`${tag}${type} ${id} | ${txt}`);
         });
         return out.join("\n");
@@ -119,84 +137,80 @@ export async function submitToDaou(p) {
       step("폼요소:\n" + dump);
     } catch {}
 
-    // 3) 등록유형 = 법인카드 사용 (먼저 선택)
+    // 3) 등록유형
     if (p.registerType) {
-      await page.getByText("등록 유형").locator("xpath=following::select[1]")
+      await F.getByText(/등록\s*유형/).locator("xpath=following::select[1]")
         .selectOption({ label: p.registerType }).catch(() => step("등록유형 선택 실패(수동확인)"));
     }
 
     // 4) 파일첨부 (영수증 사진)
     if (p.photo) {
-      const fileInput = page.locator('input[type="file"]').first();
-      await fileInput.setInputFiles({
+      await F.locator('input[type="file"]').first().setInputFiles({
         name: p.photo.originalname || "receipt.jpg",
         mimeType: p.photo.mimetype || "image/jpeg",
         buffer: p.photo.buffer,
-      }).catch(() => step("파일첨부 실패(수동확인)"));
-      step("사진 첨부");
+      }).then(() => step("사진 첨부")).catch(() => step("파일첨부 실패(수동확인)"));
     }
 
     // 5) 결산산입부서
     if (p.dept) {
-      await page.getByText("결산산입부서").locator("xpath=following::select[1]")
+      await F.getByText("결산산입부서").locator("xpath=following::select[1]")
         .selectOption({ label: p.dept }).catch(() => step("부서 선택 실패(수동확인)"));
     }
 
     // 6) 금액
     if (p.amount) {
-      await page.getByText("금액").locator("xpath=following::input[1]").fill(String(p.amount))
-        .catch(() => step("금액 입력 실패(수동확인)"));
+      await F.getByText("금액").locator("xpath=following::input[1]").fill(String(p.amount))
+        .then(() => step("금액 입력: " + p.amount)).catch(() => step("금액 입력 실패(수동확인)"));
     }
 
     // 7) 지출항목 검색 -> 데이터검색 창에서 선택
     if (p.category) {
-      await clickSearchNear(page, "지출항목")
-        .catch(() => page.getByRole("button", { name: "검색" }).first().click());
-      await page.waitForTimeout(800);
-      const dlg = page.getByText("데이터 검색").locator("xpath=ancestor::*[self::div][1]");
-      await dlg.getByRole("textbox").first().fill(p.category).catch(() => {});
-      await dlg.getByRole("button", { name: "검색" }).click().catch(() => {});
-      await page.waitForTimeout(800);
-      await page.getByRole("row", { name: new RegExp(p.category) }).first().click()
-        .catch(() => page.getByText(p.category, { exact: true }).first().click());
+      await clickSearchNear(F, "지출항목")
+        .catch(() => F.getByRole("button", { name: "검색" }).first().click().catch(() => {}));
+      await page.waitForTimeout(1000);
+      await F.getByRole("textbox").last().fill(p.category).catch(() => {});
+      await F.getByRole("button", { name: "검색" }).last().click().catch(() => {});
+      await page.waitForTimeout(1000);
+      await F.getByText(p.category, { exact: true }).first().click()
+        .catch(() => F.getByRole("row", { name: new RegExp(p.category) }).first().click().catch(() => step("지출항목 선택 실패(수동확인)")));
       step("지출항목 선택: " + p.category);
     }
 
     // 8) 제목
     if (p.title) {
-      await page.getByText("제목", { exact: false }).locator("xpath=following::input[1]").fill(p.title)
-        .catch(() => step("제목 입력 실패(수동확인)"));
+      await F.getByText("제목", { exact: false }).locator("xpath=following::input[1]").fill(p.title)
+        .then(() => step("제목 입력")).catch(() => step("제목 입력 실패(수동확인)"));
     }
 
     // 9) 등록부서의 부서장 추가
     if (p.managerName) {
-      await page.getByText("등록부서의 부서장").locator("xpath=following::*[contains(text(),'추가')][1]").click()
-        .catch(() => {});
-      await page.waitForTimeout(600);
-      await page.getByRole("textbox").last().fill(p.managerName).catch(() => {});
-      await page.waitForTimeout(800);
-      await page.getByText(p.managerName, { exact: false }).first().click().catch(() => step("부서장 선택 실패(수동확인)"));
+      await F.getByText("등록부서의 부서장").locator("xpath=following::*[contains(text(),'추가')][1]").click().catch(() => {});
+      await page.waitForTimeout(700);
+      await F.getByRole("textbox").last().fill(p.managerName).catch(() => {});
+      await page.waitForTimeout(900);
+      await F.getByText(p.managerName, { exact: false }).first().click().catch(() => step("부서장 선택 실패(수동확인)"));
     }
 
     // 10) 사용카드 검색 -> 데이터검색에서 뒷번호로 선택
     if (p.cardLast4) {
-      await clickSearchNear(page, "사용카드").catch(() => {});
-      await page.waitForTimeout(800);
-      await page.getByRole("textbox").last().fill(p.cardLast4).catch(() => {});
-      await page.getByRole("button", { name: "검색" }).last().click().catch(() => {});
-      await page.waitForTimeout(800);
-      await page.getByText(p.cardLast4, { exact: false }).first().click().catch(() => step("카드 선택 실패(수동확인)"));
+      await clickSearchNear(F, "사용카드").catch(() => {});
+      await page.waitForTimeout(1000);
+      await F.getByRole("textbox").last().fill(p.cardLast4).catch(() => {});
+      await F.getByRole("button", { name: "검색" }).last().click().catch(() => {});
+      await page.waitForTimeout(1000);
+      await F.getByText(p.cardLast4, { exact: false }).first().click().catch(() => step("카드 선택 실패(수동확인)"));
       step("카드 선택: " + p.cardLast4);
     }
 
     // 11) 확인
-    await page.getByRole("button", { name: "확인" }).first().click().catch(() => step("확인 버튼 실패(수동확인)"));
+    await F.getByRole("button", { name: "확인" }).first().click().catch(() => step("확인 버튼 실패(수동확인)"));
     await page.waitForTimeout(1500);
     step("확인 클릭");
 
-    // 12) (옵션) 결재완료 — 위험하니 기본은 멈춤. autoApprove=true 일 때만.
+    // 12) (옵션) 결재완료 — autoApprove=true 일 때만.
     if (p.autoApprove) {
-      await page.getByRole("button", { name: /결재완료|결제완료/ }).first().click().catch(() => step("결재완료 실패(수동확인)"));
+      await F.getByRole("button", { name: /결재완료|결제완료/ }).first().click().catch(() => step("결재완료 실패(수동확인)"));
       step("결재완료 클릭");
     }
 
