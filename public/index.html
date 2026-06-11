@@ -233,7 +233,9 @@ $("#submitBtn").onclick=async()=>{
     const cardVal = $("#card").value==="__manual__" ? $("#manualCard").value.trim() : $("#card").value;
     fd.append("cardLast4", cardVal||"");
     fd.append("autoApprove",settings.approve?"true":"false");
-    const r=await fetch("/api/submit",{method:"POST",body:fd}).then(r=>r.json());
+    const resp=await fetch("/api/submit",{method:"POST",body:fd});
+    const txt=await resp.text();
+    let r; try{ r=JSON.parse(txt); }catch{ r={error:"서버가 응답을 못 줬어요(메모리 부족 가능). 잠시 후 다시 시도해보세요."}; }
     if(r.error){ showResult("err", r.error, r.screenshot); }
     else { showResult("ok","등록 완료!", r.screenshot); }
   }catch(e){ showResult("err", e.message); }

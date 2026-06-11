@@ -10,7 +10,12 @@ export function daouReady() {
 // 라벨/텍스트 기반 자동등록. 실제 사이트에서 한번 돌려보며 미세조정 필요.
 // 에러나면 그 시점 화면 스크린샷(base64)을 함께 던져서 어디서 막혔는지 바로 보이게 함.
 export async function submitToDaou(p) {
-  const browser = await chromium.launch({ args: ["--no-sandbox"] });
+  // 저메모리 옵션 (Render 무료 512MB에서도 크롬 뜨게)
+  const browser = await chromium.launch({ args: [
+    "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
+    "--disable-gpu", "--single-process", "--no-zygote",
+    "--disable-extensions", "--disable-background-networking",
+  ] });
   const ctx = await browser.newContext({ acceptDownloads: false });
   const page = await ctx.newPage();
   const log = [];
