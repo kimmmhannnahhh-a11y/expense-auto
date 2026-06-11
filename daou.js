@@ -52,10 +52,17 @@ export async function submitToDaou(p) {
     // 1) 로그인
     step("로그인 페이지 이동");
     await page.goto(DAOU.loginUrl, { waitUntil: "domcontentloaded" });
-    await page.fill('input[name="id"], input[type="text"], #username, #id', loginId).catch(() => {});
-    await page.fill('input[name="password"], input[type="password"], #password', loginPw);
-    await page.click('button[type="submit"], .login_btn, button:has-text("로그인")');
-    await page.waitForLoadState("networkidle");
+    await page.waitForSelector('input[type="password"]', { timeout: 15000 }).catch(() => {});
+    await page.locator('input[name="id"], input#id, input#username, input[type="text"]').first().fill(loginId).catch(() => {});
+    await page.locator('input[type="password"]').first().fill(loginPw).catch(() => {});
+    await page.locator('button[type="submit"], button:has-text("로그인"), .login_btn, a:has-text("로그인")').first().click().catch(() => {});
+    // 로그인 완료까지 대기 (비밀번호 칸이 사라질 때까지)
+    await page.waitForFunction(() => !document.querySelector('input[type="password"]'), { timeout: 15000 }).catch(() => {});
+    await page.waitForLoadState("networkidle").catch(() => {});
+    // 아직도 로그인 화면이면 실패 처리
+    if (await page.locator('input[type="password"]').count() > 0) {
+      throw new Error("다우 로그인이 안 됐어요. 설정의 아이디/비밀번호를 확인하세요.");
+    }
     step("로그인 완료");
 
     // 2) Works > 지출관리 > 등록
