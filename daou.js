@@ -28,6 +28,12 @@ async function closePopups(page, step) {
   if (step) step("팝업 닫기 시도");
 }
 
+// 라벨 텍스트 옆의 '검색' 버튼/링크/인풋 클릭 (유연하게)
+async function clickSearchNear(page, labelText) {
+  const xp = `xpath=//*[contains(normalize-space(.),"${labelText}")]/following::*[(self::button or self::a or (self::input and (@type="button" or @type="submit" or @type="image"))) and (contains(normalize-space(.),"검색") or contains(@value,"검색"))][1]`;
+  await page.locator(xp).first().click({ timeout: 8000 });
+}
+
 // 라벨/텍스트 기반 자동등록. 실제 사이트에서 한번 돌려보며 미세조정 필요.
 // 에러나면 그 시점 화면 스크린샷(base64)을 함께 던져서 어디서 막혔는지 바로 보이게 함.
 export async function submitToDaou(p) {
@@ -96,6 +102,23 @@ export async function submitToDaou(p) {
     await page.waitForTimeout(2000);
     step("등록 화면 진입");
 
+    // 진단: 폼의 버튼/인풋/셀렉트 목록 덤프 (셀렉터 정확히 잡으려고)
+    try {
+      const dump = await page.evaluate(() => {
+        const out = [];
+        document.querySelectorAll("button, a, input, select, textarea").forEach((e, i) => {
+          if (i > 140) return;
+          const tag = e.tagName.toLowerCase();
+          const type = e.type ? `[${e.type}]` : "";
+          const id = e.name || e.id || "";
+          const txt = (e.value || e.innerText || e.placeholder || "").trim().replace(/\s+/g, " ").slice(0, 24);
+          if (txt || id) out.push(`${tag}${type} ${id} | ${txt}`);
+        });
+        return out.join("\n");
+      });
+      step("폼요소:\n" + dump);
+    } catch {}
+
     // 3) 등록유형 = 법인카드 사용 (먼저 선택)
     if (p.registerType) {
       await page.getByText("등록 유형").locator("xpath=following::select[1]")
@@ -127,7 +150,7 @@ export async function submitToDaou(p) {
 
     // 7) 지출항목 검색 -> 데이터검색 창에서 선택
     if (p.category) {
-      await page.getByText("지출항목").locator("xpath=following::button[contains(.,'검색')][1]").click()
+      await clickSearchNear(page, "지출항목")
         .catch(() => page.getByRole("button", { name: "검색" }).first().click());
       await page.waitForTimeout(800);
       const dlg = page.getByText("데이터 검색").locator("xpath=ancestor::*[self::div][1]");
@@ -157,7 +180,7 @@ export async function submitToDaou(p) {
 
     // 10) 사용카드 검색 -> 데이터검색에서 뒷번호로 선택
     if (p.cardLast4) {
-      await page.getByText("사용카드").locator("xpath=following::button[contains(.,'검색')][1]").click().catch(() => {});
+      await clickSearchNear(page, "사용카드").catch(() => {});
       await page.waitForTimeout(800);
       await page.getByRole("textbox").last().fill(p.cardLast4).catch(() => {});
       await page.getByRole("button", { name: "검색" }).last().click().catch(() => {});
