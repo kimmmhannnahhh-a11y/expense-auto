@@ -1,6 +1,5 @@
 import express from "express";
 import multer from "multer";
-import Anthropic from "@anthropic-ai/sdk";
 import { CATEGORIES, DEPARTMENTS, REGISTER_TYPES } from "./config.js";
 import { submitToDaou, daouReady } from "./daou.js";
 
@@ -9,11 +8,13 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 
 app.use(express.json({ limit: "20mb" }));
 app.use(express.static("public"));
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });
+// 무료 OCR: 구글 Gemini API (aistudio.google.com 에서 무료 키 발급, 카드 등록 불필요)
+const GEMINI_KEY = process.env.GEMINI_API_KEY || "";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 
 app.get("/api/config", (_req, res) => {
   res.json({
-    ocr: !!process.env.ANTHROPIC_API_KEY,
+    ocr: !!GEMINI_KEY,
     daou: daouReady(),
     categories: CATEGORIES,
     departments: DEPARTMENTS,
@@ -21,10 +22,10 @@ app.get("/api/config", (_req, res) => {
   });
 });
 
-// 영수증 사진 -> 금액/날짜/상호 추출
+// 영수증 사진 -> 금액/날짜/상호 추출 (Gemini)
 app.post("/api/ocr", upload.single("photo"), async (req, res) => {
   try {
-    if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: "서버에 ANTHROPIC_API_KEY가 없어요." });
+    if (!GEMINI_KEY) return res.status(500).json({ error: "서버에 GEMINI_API_KEY가 없어요." });
     if (!req.file) return res.status(400).json({ error: "사진이 없어요." });
 
     const b64 = req.file.buffer.toString("base64");
@@ -32,18 +33,21 @@ app.post("/api/ocr", upload.single("photo"), async (req, res) => {
 {"amount": 숫자(원,콤마없이), "date": "YYYY-MM-DD", "vendor": "가게/상호명"}
 못 읽으면 빈 문자열 또는 0.`;
 
-    const msg = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 300,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: req.file.mimetype || "image/jpeg", data: b64 } },
-          { type: "text", text: prompt },
-        ],
-      }],
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`;
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [
+          { inline_data: { mime_type: req.file.mimetype || "image/jpeg", data: b64 } },
+          { text: prompt },
+        ] }],
+        generationConfig: { responseMimeType: "application/json" },
+      }),
     });
-    const text = msg.content.find(c => c.type === "text")?.text || "{}";
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error?.message || "Gemini 오류");
+    const text = j.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     const data = JSON.parse(text.replace(/```json|```/g, "").trim());
     res.json({ ok: true, data });
   } catch (e) {

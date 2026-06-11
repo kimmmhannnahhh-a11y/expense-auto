@@ -103,7 +103,7 @@ async function init() {
     fillSelect("#set-rtype", cfg.registerTypes, "법인카드 사용");
     if (cfg.ocr && cfg.daou) setStatus("ok", "준비 완료 — 분석 + 자동등록 가능");
     else if (cfg.ocr) setStatus("warn", "사진 분석 가능 / 다우 로그인정보(환경변수) 필요");
-    else setStatus("warn", "서버에 ANTHROPIC_API_KEY 설정 필요");
+    else setStatus("warn", "서버에 GEMINI_API_KEY 설정 필요 (무료)");
   } catch { setStatus("err", "서버 연결 실패"); }
   loadSettings(); renderCards(); refreshCardSelect(); buildTitle();
 }
