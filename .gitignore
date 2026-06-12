@@ -2,3 +2,10 @@ node_modules/
 .env
 *.log
 .DS_Store
+
+# 테스트/로컬 전용 (자격증명 포함 가능 - 커밋 금지)
+test-*.mjs
+test-*.png
+real-*.png
+*.png
+.playwright-mcp/
