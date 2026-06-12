@@ -94,29 +94,29 @@ async function pickCard(page, F, last4) {
     return document.body.innerText.includes(n);  // 선택된 카드(별칭/번호)에 뒷자리 포함
   }, String(last4)).catch(() => false);
 
-  for (let attempt = 0; attempt < 3 && !(await committed()); attempt++) {
+  // 카드는 필수가 아님 → 빠른 1회 시도(그리드라 flaky). 실패해도 진행.
+  if (!(await committed())) {
     await page.evaluate(() => { const x = document.evaluate('//*[normalize-space()="사용카드"]/following::a[normalize-space()="검색"][1]', document, null, 9, null).singleNodeValue; if (x) x.click(); });
-    await page.waitForSelector(".layer_app_search input.txt_mini", { timeout: 8000 }).catch(() => {});
-    await page.waitForTimeout(700);
+    await page.waitForSelector(".layer_app_search input.txt_mini", { timeout: 6000 }).catch(() => {});
+    await page.waitForTimeout(600);
     const box = page.locator(".layer_app_search input.txt_mini").last();
     await box.click().catch(() => {});
     await box.fill("").catch(() => {});
-    await box.pressSequentially(String(last4), { delay: 45 }).catch(() => {});
+    await box.pressSequentially(String(last4), { delay: 40 }).catch(() => {});
     await box.press("Enter").catch(() => {});
-    await page.waitForTimeout(1200);
-    // 셀 활성화 → 선택버튼(.rg-button-action) 클릭, 팝업 닫힐 때까지 내부 재시도
-    for (let k = 0; k < 3; k++) {
+    await page.waitForTimeout(1000);
+    for (let k = 0; k < 2; k++) {
       const cell = page.locator(".layer_app_search .rg-data-row .rg-renderer").filter({ hasText: re }).first();
-      await cell.click({ timeout: 4000 }).catch(() => {});
-      await page.waitForTimeout(800);
-      await page.locator(".layer_app_search .rg-button-action").first().click({ timeout: 4000 }).catch(() => {});
+      await cell.click({ timeout: 3500 }).catch(() => {});
       await page.waitForTimeout(700);
+      await page.locator(".layer_app_search .rg-button-action").first().click({ timeout: 3500 }).catch(() => {});
+      await page.waitForTimeout(600);
       if (!(await page.locator(".layer_app_search input.txt_mini").last().isVisible().catch(() => false))) break;
     }
-    await page.evaluate(() => document.querySelectorAll("#popOverlay").forEach((e) => e.remove())).catch(() => {});
-    await page.waitForTimeout(400);
+    // 팝업이 남아있으면 닫기(다음 단계 막힘 방지)
+    await page.locator(".layer_app_search a.btn_minor_s", { hasText: "닫기" }).last().click({ timeout: 1500 }).catch(() => {});
   }
-  if (!(await committed())) throw new Error("카드 미커밋");
+  if (!(await committed())) throw new Error("카드 미커밋(카드는 선택사항이라 진행)");
 }
 
 // 등록부서의 부서장(필수) 선택 — [추가] → 조직도 팝업(.dop_organization)에서 이름 검색 후 클릭.
@@ -444,12 +444,12 @@ export async function submitToDaou(p) {
         }).catch(() => ({}));
         console.log("[확인버튼]", JSON.stringify(c));
       }
-      await page.waitForTimeout(2000);
-      // 확인을 실제 클릭으로 여러 번 시도 — 등록(URL이 doc/new → doc/<id> 로 변경)될 때까지
-      for (let k = 0; k < 4 && /\/doc\/new\//.test(page.url()); k++) {
-        await F.locator("a.btn-confirm").first().scrollIntoViewIfNeeded({ timeout: 4000 }).catch(() => {});
-        await F.locator("a.btn-confirm").first().click({ timeout: 6000 }).catch(() => {});
-        await page.waitForTimeout(2000);
+      await page.waitForTimeout(1500);
+      // 확인을 실제 클릭으로 시도 — 등록(URL이 doc/new → doc/<id> 로 변경)될 때까지(최대 2회)
+      for (let k = 0; k < 2 && /\/doc\/new\//.test(page.url()); k++) {
+        await F.locator("a.btn-confirm").first().scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+        await F.locator("a.btn-confirm").first().click({ timeout: 5000 }).catch(() => {});
+        await page.waitForTimeout(1800);
       }
       // 실제 등록 여부 = URL이 더이상 /doc/new/ 가 아님
       confirmed = !/\/doc\/new\//.test(page.url());
