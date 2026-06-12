@@ -236,6 +236,7 @@ export async function submitToDaou(p) {
   try {
     if (!loginId || !loginPw) throw new Error("다우오피스 아이디/비번이 없어요. 앱 설정에 입력하세요.");
     // 1) 로그인
+    step("◆ 코드버전: v2-2026.06.12 (부서장+전필드)");
     step("로그인 페이지 이동");
     await page.goto(DAOU.loginUrl, { waitUntil: "domcontentloaded" });
     await page.waitForSelector('input[type="password"]', { timeout: 15000 }).catch(() => {});
